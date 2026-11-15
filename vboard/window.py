@@ -2877,6 +2877,7 @@ class VirtualKeyboard(Gtk.Window):
                 primary_label = Gtk.Label()
                 primary_label.get_style_context().add_class("key-primary-label")
                 secondary_label = Gtk.Label()
+                secondary_label.set_no_show_all(True)
                 secondary_label.get_style_context().add_class("key-secondary-label")
                 secondary_icon = Gtk.Image()
                 secondary_icon.set_no_show_all(True)
