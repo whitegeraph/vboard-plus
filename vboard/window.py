@@ -395,14 +395,6 @@ class StatusNotifierTrayIcon:
                 },
             ),
             (
-                12,
-                {
-                    "label": "Navigation Keys (PrtSc, Del, Ins, Home, End)",
-                    "toggle-type": "checkmark",
-                    "toggle-state": int(self.window.show_nav_keys),
-                },
-            ),
-            (
                 self.MENU_SEPARATOR_ID,
                 {"type": "separator", "enabled": False},
             ),
@@ -497,9 +489,6 @@ class StatusNotifierTrayIcon:
             ),
             11: lambda: self.window.set_function_row_visible(
                 not self.window.show_function_row
-            ),
-            12: lambda: self.window.set_nav_keys_visible(
-                not self.window.show_nav_keys
             ),
             8: lambda: self.window.on_tray_about(None),
             9: lambda: self.window.on_tray_quit(None),
@@ -795,14 +784,10 @@ class VirtualKeyboard(Gtk.Window):
         self.start_minimized = False
         self.keyboard_layout = DEFAULT_KEYBOARD_LAYOUT
         self.show_function_row = True
-        self.show_nav_keys = True
         self.fn_locked = True
         self.fn_row_button = None
-        self.nav_keys_button = None
         self.settings_fn_row_check = None
-        self.settings_nav_keys_check = None
         self.tray_fn_row_item = None
-        self.tray_nav_keys_item = None
         self.read_settings()
         self.MIN_WINDOW_HEIGHT = (
             self.MIN_FUNCTION_ROW_HEIGHT if self.show_function_row else 110
@@ -1124,10 +1109,6 @@ class VirtualKeyboard(Gtk.Window):
         self.tray_fn_row_item.connect("toggled", self.on_tray_fn_row_toggled)
         tray_menu.append(self.tray_fn_row_item)
 
-        self.tray_nav_keys_item = Gtk.CheckMenuItem(label="Navigation Keys (PrtSc, Del, Ins, Home, End)")
-        self.tray_nav_keys_item.connect("toggled", self.on_tray_nav_keys_toggled)
-        tray_menu.append(self.tray_nav_keys_item)
-
         tray_menu.append(Gtk.SeparatorMenuItem())
 
         layout_item = Gtk.MenuItem(label="Keyboard Layout")
@@ -1249,10 +1230,6 @@ class VirtualKeyboard(Gtk.Window):
         if not self._syncing_tray_items:
             self.set_function_row_visible(widget.get_active())
 
-    def on_tray_nav_keys_toggled(self, widget):
-        if not self._syncing_tray_items:
-            self.set_nav_keys_visible(widget.get_active())
-
     def on_tray_layout_toggled(self, widget, layout_key):
         if not self._syncing_tray_items and widget.get_active():
             self.set_keyboard_layout(layout_key)
@@ -1273,8 +1250,6 @@ class VirtualKeyboard(Gtk.Window):
                 self.tray_start_minimized_item.set_active(self.start_minimized)
             if self.tray_fn_row_item is not None:
                 self.tray_fn_row_item.set_active(self.show_function_row)
-            if self.tray_nav_keys_item is not None:
-                self.tray_nav_keys_item.set_active(self.show_nav_keys)
             for layout_key, item in self.tray_layout_items.items():
                 item.set_active(layout_key == self.keyboard_layout)
         finally:
@@ -1291,42 +1266,34 @@ class VirtualKeyboard(Gtk.Window):
         return self.keyboard_layouts[self.keyboard_layout]
 
     def get_key_width(self, key_event):
-        nav_enabled = getattr(self, "show_nav_keys", True)
         layout_id = getattr(self, "keyboard_layout", "en")
-        if key_event == "Backspace":
-            return 3 if nav_enabled else 5
-        if key_event == "\\":
-            return 2 if nav_enabled else 4
-        if key_event == "Enter":
-            return 3 if nav_enabled else 5
-        if key_event == "Fn":
-            return 4 if nav_enabled else 6
         if key_event == "Shift_R":
             return 2 if layout_id == "sv" else 4
         if key_event == "↑":
-            return 2 if nav_enabled else 4
+            return 4
         return KEY_WIDTHS.get(key_event, 2)
 
     def get_active_key_rows(self):
         base_rows = self.get_layout_config()["rows"]
-        show_nav = getattr(self, "show_nav_keys", True)
-        rows = []
-        nav_keys_map = {
-            0: "Delete",
-            1: "Insert",
-            2: "Home",
-            3: "End",
-        }
-        for r_idx, r in enumerate(base_rows):
-            row = list(r)
-            if show_nav and r_idx in nav_keys_map:
-                row.append(nav_keys_map[r_idx])
-            rows.append(row)
+        rows = [list(r) for r in base_rows]
 
         if getattr(self, "show_function_row", True):
-            fn_row = list(FUNCTION_ROW_KEYS)
-            if show_nav:
-                fn_row.append("PrtSc")
+            fn_row = [
+                "F1",
+                "F2",
+                "F3",
+                "F4",
+                "F5",
+                "F6",
+                "F7",
+                "F8",
+                "F9",
+                "F10",
+                "F11",
+                "F12",
+                "Delete",
+                "Fn",
+            ]
             rows.insert(0, fn_row)
 
         return rows
@@ -1455,45 +1422,6 @@ class VirtualKeyboard(Gtk.Window):
         self._last_suggestion_scale = None
         self.update_suggestion_bar_scale()
         self.sync_function_row_controls()
-        self.save_settings()
-
-    def sync_nav_keys_controls(self):
-        if self.nav_keys_button is not None:
-            ctx = self.nav_keys_button.get_style_context()
-            if self.show_nav_keys:
-                ctx.add_class("active-header-toggle")
-            else:
-                ctx.remove_class("active-header-toggle")
-
-        if (
-            self.settings_nav_keys_check is not None
-            and self.settings_nav_keys_check.get_active() != self.show_nav_keys
-        ):
-            self.settings_nav_keys_check.set_active(self.show_nav_keys)
-
-        if (
-            self.tray_nav_keys_item is not None
-            and self.tray_nav_keys_item.get_active() != self.show_nav_keys
-        ):
-            self.tray_nav_keys_item.set_active(self.show_nav_keys)
-
-    def set_nav_keys_visible(self, visible):
-        visible = bool(visible)
-        if visible == self.show_nav_keys:
-            return
-
-        self.show_nav_keys = visible
-        self.apply_window_geometry_constraints()
-        self.rebuild_keyboard_grid()
-
-        if self.gesture_controller is not None:
-            self.gesture_controller.refresh_layout_cache()
-            self.gesture_controller.schedule_layout_cache_refresh()
-            self.gesture_controller.queue_overlay_draw()
-
-        self._last_suggestion_scale = None
-        self.update_suggestion_bar_scale()
-        self.sync_nav_keys_controls()
         self.save_settings()
 
     def sync_gesture_controls(self):
@@ -1643,13 +1571,6 @@ class VirtualKeyboard(Gtk.Window):
             hide_with_menu=True,
         )
         self.fn_row_button.set_tooltip_text("Toggle Function row (F1-F12)")
-        self.nav_keys_button = self.create_button(
-            "Nav",
-            self.on_header_toggle_nav_keys,
-            callbacks=1,
-            hide_with_menu=True,
-        )
-        self.nav_keys_button.set_tooltip_text("Toggle Navigation keys (PrtSc, Del, Ins, Home, End)")
         self.create_button("+", self.change_opacity, True, 2)
         self.create_button("-", self.change_opacity, False, 2)
         self.create_button(f"{self.opacity}")
@@ -1695,13 +1616,9 @@ class VirtualKeyboard(Gtk.Window):
 
         self.color_combobox.set_active(active_index)
         self.sync_function_row_controls()
-        self.sync_nav_keys_controls()
 
     def on_header_toggle_function_row(self, widget=None):
         self.set_function_row_visible(not self.show_function_row)
-
-    def on_header_toggle_nav_keys(self, widget=None):
-        self.set_nav_keys_visible(not self.show_nav_keys)
 
     def open_settings_dialog(self, widget=None):
         if self.settings_dialog is not None:
@@ -1759,22 +1676,14 @@ class VirtualKeyboard(Gtk.Window):
         grid.attach(fn_row_check, 0, 4, 2, 1)
         self.settings_fn_row_check = fn_row_check
 
-        nav_keys_check = Gtk.CheckButton(label="Navigation Keys (PrtSc, Del, Ins, Home, End)")
-        nav_keys_check.set_active(self.show_nav_keys)
-        nav_keys_check.connect(
-            "toggled", lambda w: self.set_nav_keys_visible(w.get_active())
-        )
-        grid.attach(nav_keys_check, 0, 5, 2, 1)
-        self.settings_nav_keys_check = nav_keys_check
-
         layout_label = Gtk.Label(label="Keyboard Layout", xalign=0)
         layout_combo = Gtk.ComboBoxText()
         for layout_key, layout_name in self.keyboard_layout_choices:
             layout_combo.append(layout_key, layout_name)
         layout_combo.set_active_id(self.keyboard_layout)
         layout_combo.connect("changed", self.on_settings_layout_changed)
-        grid.attach(layout_label, 0, 6, 1, 1)
-        grid.attach(layout_combo, 1, 6, 1, 1)
+        grid.attach(layout_label, 0, 5, 1, 1)
+        grid.attach(layout_combo, 1, 5, 1, 1)
 
         about_button = Gtk.Button(label="About")
         about_button.connect("clicked", self.on_settings_about_clicked)
@@ -1782,9 +1691,9 @@ class VirtualKeyboard(Gtk.Window):
         report_bugs_button.connect("clicked", self.on_settings_report_bugs_clicked)
         quit_button = Gtk.Button(label="Quit")
         quit_button.connect("clicked", self.on_settings_quit_clicked)
-        grid.attach(about_button, 0, 7, 1, 1)
-        grid.attach(report_bugs_button, 1, 7, 1, 1)
-        grid.attach(quit_button, 2, 7, 1, 1)
+        grid.attach(about_button, 0, 6, 1, 1)
+        grid.attach(report_bugs_button, 1, 6, 1, 1)
+        grid.attach(quit_button, 2, 6, 1, 1)
 
         self.settings_dialog = dialog
         dialog.show_all()
@@ -1797,7 +1706,6 @@ class VirtualKeyboard(Gtk.Window):
         self.settings_gesture_check = None
         self.settings_visual_feedback_check = None
         self.settings_fn_row_check = None
-        self.settings_nav_keys_check = None
 
     def on_settings_prediction_toggled(self, widget):
         self.set_text_prediction_enabled(widget.get_active())
@@ -3604,11 +3512,6 @@ class VirtualKeyboard(Gtk.Window):
                     "show_function_row",
                     fallback=True,
                 )
-                self.show_nav_keys = self.config.getboolean(
-                    "DEFAULT",
-                    "show_nav_keys",
-                    fallback=True,
-                )
                 self.fn_locked = self.config.getboolean(
                     "DEFAULT",
                     "fn_locked",
@@ -3657,7 +3560,6 @@ class VirtualKeyboard(Gtk.Window):
                 self.gesture_visual_feedback_enabled
             ),
             "show_function_row": str(self.show_function_row),
-            "show_nav_keys": str(self.show_nav_keys),
             "fn_locked": str(self.fn_locked),
             "keyboard_layout": self.keyboard_layout,
             "width": str(self.width),
