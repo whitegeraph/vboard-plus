@@ -47,6 +47,11 @@ install_subdir(
   install_dir: vboard_python_dir,
 )
 
+install_subdir(
+  'vboard/icons',
+  install_dir: vboard_python_dir,
+)
+
 install_data(
   'io.github.archisman-panigrahi.vboard.svg',
   install_dir: icons_dir,
