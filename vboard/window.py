@@ -739,6 +739,12 @@ class VirtualKeyboard(Gtk.Window):
         if application is not None:
             self.set_application(application)
 
+        icons_dir = os.path.join(os.path.dirname(__file__), "icons")
+        if os.path.isdir(icons_dir):
+            icon_theme = Gtk.IconTheme.get_default()
+            if icon_theme is not None and icons_dir not in icon_theme.get_search_path():
+                icon_theme.append_search_path(icons_dir)
+
         self.exiting = False
         self.set_border_width(0)
         self.set_resizable(True)
