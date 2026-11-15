@@ -566,12 +566,23 @@ class ScalableKeyButton(Gtk.Button):
         self.key_event = key_event
         self.primary_label = None
         self.secondary_label = None
+        self.secondary_icon = None
 
-    def set_dual_labels(self, primary, secondary=""):
+    def set_dual_labels(self, primary, secondary="", icon_name=None, icon_pixel_size=11):
         if self.primary_label is not None:
             self.primary_label.set_label(primary)
-        if self.secondary_label is not None:
-            self.secondary_label.set_label(secondary)
+        if icon_name and self.secondary_icon is not None:
+            self.secondary_icon.set_from_icon_name(icon_name, Gtk.IconSize.MENU)
+            self.secondary_icon.set_pixel_size(icon_pixel_size)
+            self.secondary_icon.show()
+            if self.secondary_label is not None:
+                self.secondary_label.hide()
+        else:
+            if self.secondary_icon is not None:
+                self.secondary_icon.hide()
+            if self.secondary_label is not None:
+                self.secondary_label.set_label(secondary)
+                self.secondary_label.show()
 
     def set_label(self, label):
         if self.primary_label is not None:
@@ -1936,6 +1947,11 @@ class VirtualKeyboard(Gtk.Window):
         self.suggestion_font_size = suggestion_font_size
         self.layout_scale = quantized_scale
 
+        icon_px = max(8, int(round(self.secondary_key_font_size * 1.15)))
+        for btn in getattr(self, "key_buttons", {}).values():
+            if isinstance(btn, ScalableKeyButton) and btn.secondary_icon is not None:
+                btn.secondary_icon.set_pixel_size(icon_px)
+
         if hasattr(self, "header_title_label") and self.header_title_label is not None:
             self.header_title_label.set_visible(show_title)
 
@@ -2259,7 +2275,8 @@ class VirtualKeyboard(Gtk.Window):
                 font-weight: 500;
             }}
 
-            #vboard-main #grid button label.key-secondary-label {{
+            #vboard-main #grid button label.key-secondary-label,
+            #vboard-main #grid button image.key-secondary-icon {{
                 color: {rgba((186, 201, 224), 0.82)};
                 font-size: {self.secondary_key_font_size}px;
                 font-weight: 500;
@@ -2269,7 +2286,8 @@ class VirtualKeyboard(Gtk.Window):
                 color: {rgba((186, 201, 224), 0.55)};
             }}
 
-            #vboard-main #grid button.media-mode-active label.key-secondary-label {{
+            #vboard-main #grid button.media-mode-active label.key-secondary-label,
+            #vboard-main #grid button.media-mode-active image.key-secondary-icon {{
                 color: {rgba((255, 255, 255), 1.0)};
                 font-weight: 600;
             }}
@@ -2526,7 +2544,8 @@ class VirtualKeyboard(Gtk.Window):
                 font-weight: 500;
             }}
 
-            #vboard-main #grid button label.key-secondary-label {{
+            #vboard-main #grid button label.key-secondary-label,
+            #vboard-main #grid button image.key-secondary-icon {{
                 color: rgb({rgb_css(text_rgb)});
                 opacity: 0.72;
                 font-size: {self.secondary_key_font_size}px;
@@ -2537,7 +2556,8 @@ class VirtualKeyboard(Gtk.Window):
                 opacity: 0.55;
             }}
 
-            #vboard-main #grid button.media-mode-active label.key-secondary-label {{
+            #vboard-main #grid button.media-mode-active label.key-secondary-label,
+            #vboard-main #grid button.media-mode-active image.key-secondary-icon {{
                 color: {accent};
                 opacity: 1.0;
                 font-weight: 600;
@@ -2710,7 +2730,8 @@ class VirtualKeyboard(Gtk.Window):
                 font-size: {self.key_font_size}px;
             }}
 
-            #vboard-main #grid button label.key-secondary-label {{
+            #vboard-main #grid button label.key-secondary-label,
+            #vboard-main #grid button image.key-secondary-icon {{
                 color: {self.text_color};
                 opacity: 0.72;
                 font-size: {self.secondary_key_font_size}px;
@@ -2720,7 +2741,8 @@ class VirtualKeyboard(Gtk.Window):
                 opacity: 0.55;
             }}
 
-            #vboard-main #grid button.media-mode-active label.key-secondary-label {{
+            #vboard-main #grid button.media-mode-active label.key-secondary-label,
+            #vboard-main #grid button.media-mode-active image.key-secondary-icon {{
                 color: #00CACB;
                 opacity: 1.0;
                 font-weight: bold;
@@ -2856,12 +2878,17 @@ class VirtualKeyboard(Gtk.Window):
                 primary_label.get_style_context().add_class("key-primary-label")
                 secondary_label = Gtk.Label()
                 secondary_label.get_style_context().add_class("key-secondary-label")
+                secondary_icon = Gtk.Image()
+                secondary_icon.set_no_show_all(True)
+                secondary_icon.get_style_context().add_class("key-secondary-icon")
 
                 vbox.pack_start(primary_label, True, True, 0)
                 vbox.pack_start(secondary_label, False, False, 0)
+                vbox.pack_start(secondary_icon, False, False, 0)
                 button.add(vbox)
                 button.primary_label = primary_label
                 button.secondary_label = secondary_label
+                button.secondary_icon = secondary_icon
             else:
                 button = ScalableKeyButton(key_event=key_event)
                 button.set_label(self.get_button_label(key_event))
@@ -2941,8 +2968,15 @@ class VirtualKeyboard(Gtk.Window):
                 else:
                     sec_info = FUNCTION_KEY_SECONDARY_ACTIONS.get(key_event)
                     sec_label = sec_info["label"] if sec_info else ""
+                    sec_icon = sec_info.get("icon") if sec_info else None
+                    icon_px = max(8, int(round(self.secondary_key_font_size * 1.15)))
                     if isinstance(button, ScalableKeyButton):
-                        button.set_dual_labels(key_event, sec_label)
+                        button.set_dual_labels(
+                            key_event,
+                            sec_label,
+                            icon_name=sec_icon,
+                            icon_pixel_size=icon_px,
+                        )
                     else:
                         button.set_label(key_event)
 

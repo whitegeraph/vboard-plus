@@ -30,18 +30,18 @@ FUNCTION_ROW_KEYS = (
 )
 
 FUNCTION_KEY_SECONDARY_ACTIONS = {
-    "F1": {"action": "Mute", "label": "Mute"},
-    "F2": {"action": "VolumeDown", "label": "Vol-"},
-    "F3": {"action": "VolumeUp", "label": "Vol+"},
-    "F4": {"action": "PreviousSong", "label": "Prev"},
-    "F5": {"action": "PlayPause", "label": "Play"},
-    "F6": {"action": "NextSong", "label": "Next"},
-    "F7": {"action": "BrightnessDown", "label": "Bri-"},
-    "F8": {"action": "BrightnessUp", "label": "Bri+"},
-    "F9": {"action": "MicMute", "label": "Mic×"},
-    "F10": {"action": "PrtSc", "label": "PrtSc"},
-    "F11": {"action": "Home", "label": "Home"},
-    "F12": {"action": "End", "label": "End"},
+    "F1": {"action": "Mute", "label": "Mute", "icon": "audio-volume-muted-symbolic"},
+    "F2": {"action": "VolumeDown", "label": "Vol-", "icon": "audio-volume-low-symbolic"},
+    "F3": {"action": "VolumeUp", "label": "Vol+", "icon": "audio-volume-high-symbolic"},
+    "F4": {"action": "PreviousSong", "label": "Prev", "icon": "media-skip-backward-symbolic"},
+    "F5": {"action": "PlayPause", "label": "Play", "icon": "media-playback-start-symbolic"},
+    "F6": {"action": "NextSong", "label": "Next", "icon": "media-skip-forward-symbolic"},
+    "F7": {"action": "BrightnessDown", "label": "Bri-", "icon": "display-brightness-low-symbolic"},
+    "F8": {"action": "BrightnessUp", "label": "Bri+", "icon": "display-brightness-high-symbolic"},
+    "F9": {"action": "MicMute", "label": "Mic×", "icon": "microphone-sensitivity-muted-symbolic"},
+    "F10": {"action": "PrtSc", "label": "PrtSc", "icon": "applets-screenshooter-symbolic"},
+    "F11": {"action": "Home", "label": "Home", "icon": "go-first-symbolic"},
+    "F12": {"action": "End", "label": "End", "icon": "go-last-symbolic"},
 }
 
 DEFAULT_KEYBOARD_LAYOUT = "en"
