@@ -3187,7 +3187,9 @@ class VirtualKeyboard(Gtk.Window):
         if event.button != 1:
             return False
 
-        if key_event in OVERLAY_GRAB_KEYS:
+        target_key = self._resolve_target_key(key_event)
+
+        if target_key in OVERLAY_GRAB_KEYS:
             if not self._is_prtsc_event_inside_button(widget, event):
                 return True
             now = time.monotonic()
@@ -3228,11 +3230,6 @@ class VirtualKeyboard(Gtk.Window):
             return False
 
         if key_event in FUNCTION_ROW_KEYS:
-            send_f_keys = bool(getattr(self, "fn_locked", True))
-            if not send_f_keys and key_event in FUNCTION_KEY_SECONDARY_ACTIONS:
-                target_key = FUNCTION_KEY_SECONDARY_ACTIONS[key_event]["action"]
-            else:
-                target_key = key_event
             self.emit_key(target_key)
             return False
 
@@ -3248,6 +3245,13 @@ class VirtualKeyboard(Gtk.Window):
             self.delay_source = GLib.timeout_add(400, self.start_repeat, key_event)
         return False
 
+    def _resolve_target_key(self, key_event):
+        if key_event in FUNCTION_ROW_KEYS and key_event != "Fn":
+            send_f_keys = bool(getattr(self, "fn_locked", True))
+            if not send_f_keys and key_event in FUNCTION_KEY_SECONDARY_ACTIONS:
+                return FUNCTION_KEY_SECONDARY_ACTIONS[key_event]["action"]
+        return key_event
+
     def on_key_button_motion_event(self, widget, event, key_event):
         if self.gesture_controller is not None:
             self.gesture_controller.handle_key_motion(widget, event)
@@ -3259,7 +3263,9 @@ class VirtualKeyboard(Gtk.Window):
         if event.button != 1:
             return False
 
-        if key_event in OVERLAY_GRAB_KEYS:
+        target_key = self._resolve_target_key(key_event)
+
+        if target_key in OVERLAY_GRAB_KEYS:
             was_pressed = getattr(self, "_prtsc_pressed", False)
             self._prtsc_pressed = False
             self._prtsc_had_release = True
@@ -3280,7 +3286,7 @@ class VirtualKeyboard(Gtk.Window):
 
             # Delay emission by 120 ms so GTK finishes click processing and redraw before overlay
             self._delayed_emit_source = GLib.timeout_add(
-                OVERLAY_KEY_RELEASE_DELAY_MS, self._emit_overlay_key_delayed, key_event
+                OVERLAY_KEY_RELEASE_DELAY_MS, self._emit_overlay_key_delayed, target_key
             )
             return False
 
