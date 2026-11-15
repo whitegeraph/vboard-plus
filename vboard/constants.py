@@ -11,7 +11,6 @@ MODIFIER_KEYS = (
     "Alt_R",
     "Super_L",
     "Super_R",
-    "Fn",
 )
 
 FUNCTION_ROW_KEYS = (
@@ -37,9 +36,9 @@ FUNCTION_KEY_SECONDARY_ACTIONS = {
     "F4": {"action": "MicMute", "label": "Mic×"},
     "F5": {"action": "BrightnessDown", "label": "Bri-"},
     "F6": {"action": "BrightnessUp", "label": "Bri+"},
-    "F7": {"action": "PreviousSong", "label": "⏮"},
-    "F8": {"action": "PlayPause", "label": "⏯"},
-    "F9": {"action": "NextSong", "label": "⏭"},
+    "F7": {"action": "PreviousSong", "label": "Prev"},
+    "F8": {"action": "PlayPause", "label": "Play"},
+    "F9": {"action": "NextSong", "label": "Next"},
 }
 
 DEFAULT_KEYBOARD_LAYOUT = "en"

@@ -756,7 +756,6 @@ class VirtualKeyboard(Gtk.Window):
         self.keyboard_layout = DEFAULT_KEYBOARD_LAYOUT
         self.show_function_row = True
         self.fn_locked = True
-        self._last_fn_press_time = 0
         self.fn_row_button = None
         self.settings_fn_row_check = None
         self.tray_fn_row_item = None
@@ -2855,19 +2854,11 @@ class VirtualKeyboard(Gtk.Window):
         return key_label
 
     def update_key_labels(self):
-        send_f_keys = bool(getattr(self, "fn_locked", True)) ^ bool(
-            self.modifiers.get("Fn", False)
-        )
+        send_f_keys = bool(getattr(self, "fn_locked", True))
         for key_event, button in self.key_buttons.items():
             if key_event in FUNCTION_ROW_KEYS:
                 if key_event == "Fn":
-                    if self.modifiers.get("Fn", False):
-                        sec_label = "1-SHOT"
-                    elif getattr(self, "fn_locked", True):
-                        sec_label = "LOCK"
-                    else:
-                        sec_label = "MEDIA"
-
+                    sec_label = "LOCK" if getattr(self, "fn_locked", True) else "MEDIA"
                     if isinstance(button, ScalableKeyButton):
                         button.set_dual_labels("Fn", sec_label)
                     else:
@@ -2877,9 +2868,7 @@ class VirtualKeyboard(Gtk.Window):
                     style_context.remove_class("active-modifier")
                     style_context.remove_class("active-command-modifier")
                     style_context.remove_class("locked-modifier")
-                    if self.modifiers.get("Fn", False):
-                        style_context.add_class("active-command-modifier")
-                    elif getattr(self, "fn_locked", True):
+                    if getattr(self, "fn_locked", True):
                         style_context.add_class("locked-modifier")
                 else:
                     sec_info = FUNCTION_KEY_SECONDARY_ACTIONS.get(key_event)
@@ -2903,15 +2892,6 @@ class VirtualKeyboard(Gtk.Window):
         if button is None:
             return
         style_context = button.get_style_context()
-        if key_event == "Fn":
-            style_context.remove_class("active-modifier")
-            style_context.remove_class("active-command-modifier")
-            style_context.remove_class("locked-modifier")
-            if value:
-                style_context.add_class("active-command-modifier")
-            elif getattr(self, "fn_locked", True):
-                style_context.add_class("locked-modifier")
-            return
         modifier_class = (
             "active-command-modifier"
             if key_event.startswith(("Shift", "Ctrl", "Alt"))
@@ -2949,10 +2929,7 @@ class VirtualKeyboard(Gtk.Window):
         self.update_suggestions()
 
     def on_key_button_press_event(self, widget, event, key_event):
-        if event.type == Gdk.EventType._3BUTTON_PRESS:
-            return True
-
-        if event.type == Gdk.EventType._2BUTTON_PRESS and key_event != "Fn":
+        if event.type in (Gdk.EventType._2BUTTON_PRESS, Gdk.EventType._3BUTTON_PRESS):
             return True
 
         self.stop_key_repeat()
@@ -2966,30 +2943,14 @@ class VirtualKeyboard(Gtk.Window):
         if event.button != 1:
             return False
 
-        if key_event != "Fn":
-            self._last_fn_press_time = 0
-
         if key_event == "CapsLock":
             self.toggle_caps_lock()
             self.reset_modifiers()
             return False
 
         if key_event == "Fn":
-            now = GLib.get_monotonic_time() / 1_000_000.0
-            last_press = getattr(self, "_last_fn_press_time", 0)
-            is_double = (
-                event.type == Gdk.EventType._2BUTTON_PRESS
-                or (last_press > 0 and (now - last_press) <= 0.400)
-            )
-            if is_double:
-                self._last_fn_press_time = 0
-                self.modifiers["Fn"] = False
-                self.fn_locked = not getattr(self, "fn_locked", True)
-                self.save_settings()
-            else:
-                self._last_fn_press_time = now
-                self.update_modifier("Fn", not self.modifiers.get("Fn", False))
-
+            self.fn_locked = not getattr(self, "fn_locked", True)
+            self.save_settings()
             self.update_key_labels()
             return False
 
@@ -3004,9 +2965,7 @@ class VirtualKeyboard(Gtk.Window):
             return False
 
         if key_event in FUNCTION_ROW_KEYS:
-            send_f_keys = bool(getattr(self, "fn_locked", True)) ^ bool(
-                self.modifiers.get("Fn", False)
-            )
+            send_f_keys = bool(getattr(self, "fn_locked", True))
             if not send_f_keys and key_event in FUNCTION_KEY_SECONDARY_ACTIONS:
                 target_key = FUNCTION_KEY_SECONDARY_ACTIONS[key_event]["action"]
             else:
