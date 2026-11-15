@@ -1538,11 +1538,13 @@ class VirtualKeyboard(Gtk.Window):
             self.pos_x, self.pos_y = x, y
         if self.gesture_controller is not None:
             self.gesture_controller.refresh_layout_cache()
+            self.gesture_controller.schedule_layout_cache_refresh()
         self.update_suggestion_bar_scale()
 
     def on_grid_size_allocate(self, widget, allocation):
         if self.gesture_controller is not None:
             self.gesture_controller.refresh_layout_cache()
+            self.gesture_controller.schedule_layout_cache_refresh()
             self.gesture_controller.queue_overlay_draw()
         self.update_suggestion_bar_scale()
 
@@ -1675,6 +1677,8 @@ class VirtualKeyboard(Gtk.Window):
                 button.set_size_request(1, suggestion_height)
 
         self.apply_css()
+        if self.gesture_controller is not None:
+            self.gesture_controller.schedule_layout_cache_refresh()
         return False
 
     def on_map_keep_above(self, widget, event):

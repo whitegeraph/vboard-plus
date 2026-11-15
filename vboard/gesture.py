@@ -180,7 +180,7 @@ class GestureDecoder:
 
     def points_to_route(self, points, key_centers, key_pitch):
         route = []
-        max_distance = max(8.0, key_pitch * 0.95)
+        max_distance = max(4.0, key_pitch * 0.95)
         for point in points:
             nearest_keys = self.get_nearest_keys(point, key_centers, 1)
             if not nearest_keys:
@@ -316,6 +316,7 @@ class GestureTypingController:
         self.gesture_key_pitch = 0.0
         self._gesture_feedback_clear_source = None
         self._feedback_draw_source = None
+        self._layout_refresh_source = None
         self._pending_gesture_points = []
         self.gesture_committed_text = ""
         self.auto_space_pending = False
@@ -335,14 +336,38 @@ class GestureTypingController:
         if hasattr(gesture_overlay, "set_has_window"):
             gesture_overlay.set_has_window(False)
         gesture_overlay.connect("draw", self.on_gesture_overlay_draw)
+        gesture_overlay.connect("size-allocate", self.on_overlay_size_allocate)
         self.grid_overlay.add_overlay(gesture_overlay)
         if hasattr(self.grid_overlay, "set_overlay_pass_through"):
             self.grid_overlay.set_overlay_pass_through(gesture_overlay, True)
         return gesture_overlay
 
+    def on_overlay_size_allocate(self, widget, allocation):
+        self.refresh_layout_cache()
+        self.schedule_layout_cache_refresh()
+
+    def schedule_layout_cache_refresh(self):
+        if self._layout_refresh_source is not None:
+            return
+        self._layout_refresh_source = GLib.idle_add(
+            self._run_scheduled_layout_refresh
+        )
+
+    def _run_scheduled_layout_refresh(self):
+        self._layout_refresh_source = None
+        self.refresh_layout_cache()
+        return False
+
+    def cancel_layout_cache_refresh(self):
+        if self._layout_refresh_source is None:
+            return
+        GLib.source_remove(self._layout_refresh_source)
+        self._layout_refresh_source = None
+
     def destroy(self):
         self.cancel_gesture_feedback_clear()
         self.cancel_feedback_draw()
+        self.cancel_layout_cache_refresh()
         self.active_gesture = None
         self.clear_committed_text()
         self._pending_gesture_points = []
@@ -456,7 +481,7 @@ class GestureTypingController:
             return
 
         points = self.active_gesture["points"]
-        min_step = max(2.0, self.gesture_key_pitch * GESTURE_POINT_SAMPLE_STEP_FACTOR)
+        min_step = max(1.5, self.gesture_key_pitch * GESTURE_POINT_SAMPLE_STEP_FACTOR)
         if not points:
             points.append(point)
         else:
@@ -496,7 +521,7 @@ class GestureTypingController:
 
         best_key = None
         best_distance = None
-        tolerance = max(4.0, self.gesture_key_pitch * 0.2)
+        tolerance = max(1.5, self.gesture_key_pitch * 0.2)
 
         for key, rect in self.gesture_key_rects.items():
             rect_x, rect_y, rect_width, rect_height = rect
@@ -512,7 +537,7 @@ class GestureTypingController:
         if best_key is not None:
             return best_key
 
-        max_distance = max(8.0, self.gesture_key_pitch * 0.95)
+        max_distance = max(4.0, self.gesture_key_pitch * 0.95)
         for key, center in self.gesture_key_centers.items():
             distance = self.distance_between(point, center)
             if distance > max_distance:
@@ -615,7 +640,7 @@ class GestureTypingController:
             return []
 
         feedback_points = [tuple(points[0])]
-        min_distance = max(6.0, self.gesture_key_pitch * GESTURE_FEEDBACK_SAMPLE_DISTANCE_FACTOR)
+        min_distance = max(2.5, self.gesture_key_pitch * GESTURE_FEEDBACK_SAMPLE_DISTANCE_FACTOR)
         min_distance_sq = min_distance * min_distance
         for point in points[1:]:
             point = tuple(point)
@@ -668,7 +693,7 @@ class GestureTypingController:
         if not self.visual_feedback_enabled or not self.visible_gesture_points:
             return False
 
-        line_width = max(3.0, self.gesture_key_pitch * 0.12)
+        line_width = max(1.8, self.gesture_key_pitch * 0.12)
         start_x, start_y = self.visible_gesture_points[0]
         cr.set_line_cap(1)
         cr.set_line_join(1)
