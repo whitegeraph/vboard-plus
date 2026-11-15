@@ -1953,7 +1953,7 @@ class VirtualKeyboard(Gtk.Window):
         self.suggestion_font_size = suggestion_font_size
         self.layout_scale = quantized_scale
 
-        icon_px = max(8, int(round(self.secondary_key_font_size * 1.15)))
+        icon_px = max(10, int(round(self.secondary_key_font_size * 1.45)))
         for btn in getattr(self, "key_buttons", {}).values():
             if isinstance(btn, ScalableKeyButton) and btn.secondary_icon is not None:
                 btn.secondary_icon.set_pixel_size(icon_px)
@@ -2976,7 +2976,7 @@ class VirtualKeyboard(Gtk.Window):
                     sec_info = FUNCTION_KEY_SECONDARY_ACTIONS.get(key_event)
                     sec_label = sec_info["label"] if sec_info else ""
                     sec_icon = sec_info.get("icon") if sec_info else None
-                    icon_px = max(8, int(round(self.secondary_key_font_size * 1.15)))
+                    icon_px = max(10, int(round(self.secondary_key_font_size * 1.45)))
                     if isinstance(button, ScalableKeyButton):
                         button.set_dual_labels(
                             key_event,
