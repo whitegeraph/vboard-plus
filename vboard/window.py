@@ -2870,7 +2870,7 @@ class VirtualKeyboard(Gtk.Window):
         for key_event in keys:
             if key_event in FUNCTION_ROW_KEYS:
                 button = ScalableKeyButton(key_event=key_event)
-                vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+                vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
                 vbox.set_halign(Gtk.Align.CENTER)
                 vbox.set_valign(Gtk.Align.CENTER)
 
@@ -2882,7 +2882,7 @@ class VirtualKeyboard(Gtk.Window):
                 secondary_icon.set_no_show_all(True)
                 secondary_icon.get_style_context().add_class("key-secondary-icon")
 
-                vbox.pack_start(primary_label, True, True, 0)
+                vbox.pack_start(primary_label, False, False, 0)
                 vbox.pack_start(secondary_label, False, False, 0)
                 vbox.pack_start(secondary_icon, False, False, 0)
                 button.add(vbox)

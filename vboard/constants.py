@@ -40,8 +40,8 @@ FUNCTION_KEY_SECONDARY_ACTIONS = {
     "F8": {"action": "BrightnessUp", "label": "Bri+", "icon": "display-brightness-high-symbolic"},
     "F9": {"action": "MicMute", "label": "Mic×", "icon": "microphone-sensitivity-muted-symbolic"},
     "F10": {"action": "PrtSc", "label": "PrtSc", "icon": "applets-screenshooter-symbolic"},
-    "F11": {"action": "Home", "label": "Home", "icon": "go-first-symbolic"},
-    "F12": {"action": "End", "label": "End", "icon": "go-last-symbolic"},
+    "F11": {"action": "Home", "label": "Home"},
+    "F12": {"action": "End", "label": "End"},
 }
 
 DEFAULT_KEYBOARD_LAYOUT = "en"
