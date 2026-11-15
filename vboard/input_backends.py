@@ -120,11 +120,17 @@ class UInputBackend(InputBackend):
             "PreviousSong": uinput.KEY_PREVIOUSSONG,
             "PlayPause": uinput.KEY_PLAYPAUSE,
             "NextSong": uinput.KEY_NEXTSONG,
+            "PrtSc": self._uinput_key("KEY_SYSRQ", "KEY_PRINT"),
+            "Delete": uinput.KEY_DELETE,
+            "Insert": uinput.KEY_INSERT,
+            "Home": uinput.KEY_HOME,
+            "End": uinput.KEY_END,
         }
         if less_key is not None:
             self.key_map["<"] = less_key
         self.modifier_order = [key for key in MODIFIER_KEYS if key in self.key_map]
-        self.device = uinput.Device(list(self.key_map.values()))
+        device_keys = list(dict.fromkeys(list(self.key_map.values()) + [uinput.KEY_SYSRQ, uinput.KEY_PRINT]))
+        self.device = uinput.Device(device_keys)
 
     @staticmethod
     def _uinput_key(*names, required=True):

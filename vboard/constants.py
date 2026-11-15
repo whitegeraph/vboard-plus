@@ -123,7 +123,20 @@ KEY_WIDTHS = {
     "F10": 2,
     "F11": 2,
     "F12": 2,
+    "PrtSc": 2,
+    "Delete": 2,
+    "Insert": 2,
+    "Home": 2,
+    "End": 2,
 }
+
+NAV_KEYS = (
+    "PrtSc",
+    "Delete",
+    "Insert",
+    "Home",
+    "End",
+)
 
 SUPPORTED_WORD_CHARS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'-")
 SUGGESTION_LIMIT = 5
