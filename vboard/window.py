@@ -3089,18 +3089,20 @@ class VirtualKeyboard(Gtk.Window):
         self.update_suggestions()
 
     def _log_button_debug(self, event_kind, key_event, widget, event, had_release=True):
+        if not os.environ.get("VBOARD_DEBUG_BUTTONS"):
+            return
         try:
             alloc_str = "no_alloc"
             if widget is not None and hasattr(widget, "get_allocation"):
                 alloc = widget.get_allocation()
                 alloc_str = f"x={alloc.x},y={alloc.y},w={alloc.width},h={alloc.height}"
-            ev_x = getattr(event, "x", None)
-            ev_y = getattr(event, "y", None)
+            ev_x = getattr(event, "x_root", getattr(event, "x", None))
+            ev_y = getattr(event, "y_root", getattr(event, "y", None))
             now_str = time.strftime("%Y-%m-%d %H:%M:%S")
             ms = int(time.time() * 1000) % 1000
             line = (
                 f"[{now_str}.{ms:03d}] {event_kind} key={key_event} "
-                f"pos=({ev_x}, {ev_y}) alloc=({alloc_str}) "
+                f"root_pos=({ev_x}, {ev_y}) alloc=({alloc_str}) "
                 f"prev_released={had_release}\n"
             )
             with open("/tmp/vboard_button_debug.log", "a", encoding="utf-8") as f:
@@ -3108,29 +3110,32 @@ class VirtualKeyboard(Gtk.Window):
         except Exception:
             pass
 
-    def _is_event_inside_widget(self, widget, event):
+    def _is_prtsc_event_inside_button(self, widget, event, tolerance=4.0):
         if widget is None:
             return True
-        if not hasattr(event, "x") or not hasattr(event, "y"):
+        if not hasattr(event, "x_root") or not hasattr(event, "y_root"):
             return True
         try:
-            ev_x = float(event.x)
-            ev_y = float(event.y)
+            rx = float(event.x_root)
+            ry = float(event.y_root)
         except (TypeError, ValueError):
             return True
 
-        if hasattr(widget, "get_allocation"):
-            alloc = widget.get_allocation()
-            w = getattr(alloc, "width", None)
-            h = getattr(alloc, "height", None)
-            if isinstance(w, (int, float)) and isinstance(h, (int, float)) and w > 0 and h > 0:
-                if ev_x < 0 or ev_y < 0 or ev_x > w or ev_y > h:
-                    return False
-        widget_win = widget.get_window() if hasattr(widget, "get_window") else None
-        event_win = getattr(event, "window", None)
-        if widget_win is not None and event_win is not None and widget_win != event_win:
-            return False
-        return True
+        gdk_win = widget.get_window() if hasattr(widget, "get_window") else None
+        if gdk_win is None:
+            return True
+        ok, win_x, win_y = gdk_win.get_origin()
+        if not ok:
+            return True
+        alloc = widget.get_allocation()
+        if alloc.width <= 0 or alloc.height <= 0:
+            return True
+
+        left = win_x + alloc.x - tolerance
+        top = win_y + alloc.y - tolerance
+        right = win_x + alloc.x + alloc.width + tolerance
+        bottom = win_y + alloc.y + alloc.height + tolerance
+        return left <= rx <= right and top <= ry <= bottom
 
     def _force_seat_ungrab(self, widget=None):
         if widget is not None and hasattr(widget, "grab_remove"):
@@ -3155,9 +3160,9 @@ class VirtualKeyboard(Gtk.Window):
 
     def _emit_overlay_key_delayed(self, key_event):
         self._delayed_emit_source = None
+        self.emit_key(key_event)
         btn = self.key_buttons.get(key_event)
         self._force_seat_ungrab(btn)
-        self.emit_key(key_event)
         return False
 
     def on_key_button_press_event(self, widget, event, key_event):
@@ -3169,11 +3174,6 @@ class VirtualKeyboard(Gtk.Window):
         self._log_button_debug("PRESS", key_event, widget, event, had_release)
 
         if event.type in (Gdk.EventType._2BUTTON_PRESS, Gdk.EventType._3BUTTON_PRESS):
-            return True
-
-        # Ignore events whose coordinates fall outside the button's allocation or wrong window
-        if not self._is_event_inside_widget(widget, event):
-            self._force_seat_ungrab(widget)
             return True
 
         self.stop_key_repeat()
@@ -3188,18 +3188,17 @@ class VirtualKeyboard(Gtk.Window):
             return False
 
         if key_event in OVERLAY_GRAB_KEYS:
+            if not self._is_prtsc_event_inside_button(widget, event):
+                return True
             now = time.monotonic()
             # 1.5 s lockout after previous emission
             if now < getattr(self, "_prtsc_lockout_until", 0.0):
-                self._force_seat_ungrab(widget)
                 return True
             # Require previous press to have received a release or grab-broken event
             if not getattr(self, "_prtsc_had_release", True):
-                self._force_seat_ungrab(widget)
                 return True
             # 500 ms debounce
             if now - getattr(self, "_last_prtsc_time", 0.0) < PRTSC_DEBOUNCE_SECONDS:
-                self._force_seat_ungrab(widget)
                 return True
             self._last_prtsc_time = now
             self._prtsc_pressed = True
@@ -3269,7 +3268,7 @@ class VirtualKeyboard(Gtk.Window):
             if not was_pressed:
                 return False
 
-            if not self._is_event_inside_widget(widget, event):
+            if not self._is_prtsc_event_inside_button(widget, event):
                 return False
 
             # Lockout for 1.5s
@@ -3353,7 +3352,6 @@ class VirtualKeyboard(Gtk.Window):
             GLib.source_remove(self._delayed_emit_source)
             self._delayed_emit_source = None
         self._prtsc_pressed = False
-        self._force_seat_ungrab()
         if hasattr(self, "backend") and self.backend is not None:
             self.backend.release_all_keys()
 
