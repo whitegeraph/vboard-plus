@@ -84,3 +84,7 @@ def main(argv=None):
     install_kwin_rule_if_needed()
     app = VboardApplication()
     return app.run(argv or sys.argv)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
