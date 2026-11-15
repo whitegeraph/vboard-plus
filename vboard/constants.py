@@ -38,6 +38,7 @@ FUNCTION_KEY_SECONDARY_ACTIONS = {
     "F6": {"action": "NextSong", "label": "Next"},
     "F7": {"action": "BrightnessDown", "label": "Bri-"},
     "F8": {"action": "BrightnessUp", "label": "Bri+"},
+    "F9": {"action": "MicMute", "label": "Mic×"},
     "F10": {"action": "PrtSc", "label": "PrtSc"},
     "F11": {"action": "Home", "label": "Home"},
     "F12": {"action": "End", "label": "End"},
