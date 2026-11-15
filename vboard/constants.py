@@ -11,7 +11,36 @@ MODIFIER_KEYS = (
     "Alt_R",
     "Super_L",
     "Super_R",
+    "Fn",
 )
+
+FUNCTION_ROW_KEYS = (
+    "F1",
+    "F2",
+    "F3",
+    "F4",
+    "F5",
+    "F6",
+    "F7",
+    "F8",
+    "F9",
+    "F10",
+    "F11",
+    "F12",
+    "Fn",
+)
+
+FUNCTION_KEY_SECONDARY_ACTIONS = {
+    "F1": {"action": "Mute", "label": "Mute"},
+    "F2": {"action": "VolumeDown", "label": "Vol-"},
+    "F3": {"action": "VolumeUp", "label": "Vol+"},
+    "F4": {"action": "MicMute", "label": "Mic×"},
+    "F5": {"action": "BrightnessDown", "label": "Bri-"},
+    "F6": {"action": "BrightnessUp", "label": "Bri+"},
+    "F7": {"action": "PreviousSong", "label": "⏮"},
+    "F8": {"action": "PlayPause", "label": "⏯"},
+    "F9": {"action": "NextSong", "label": "⏭"},
+}
 
 DEFAULT_KEYBOARD_LAYOUT = "en"
 
@@ -82,6 +111,19 @@ KEY_WIDTHS = {
     "\\": 4,
     "Enter": 5,
     "<": 2,
+    "Fn": 6,
+    "F1": 2,
+    "F2": 2,
+    "F3": 2,
+    "F4": 2,
+    "F5": 2,
+    "F6": 2,
+    "F7": 2,
+    "F8": 2,
+    "F9": 2,
+    "F10": 2,
+    "F11": 2,
+    "F12": 2,
 }
 
 SUPPORTED_WORD_CHARS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'-")

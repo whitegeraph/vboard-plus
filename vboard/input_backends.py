@@ -99,10 +99,31 @@ class UInputBackend(InputBackend):
             "↑": uinput.KEY_UP,
             "Super_L": uinput.KEY_LEFTMETA,
             "Super_R": uinput.KEY_RIGHTMETA,
+            "F1": uinput.KEY_F1,
+            "F2": uinput.KEY_F2,
+            "F3": uinput.KEY_F3,
+            "F4": uinput.KEY_F4,
+            "F5": uinput.KEY_F5,
+            "F6": uinput.KEY_F6,
+            "F7": uinput.KEY_F7,
+            "F8": uinput.KEY_F8,
+            "F9": uinput.KEY_F9,
+            "F10": uinput.KEY_F10,
+            "F11": uinput.KEY_F11,
+            "F12": uinput.KEY_F12,
+            "Mute": uinput.KEY_MUTE,
+            "VolumeDown": uinput.KEY_VOLUMEDOWN,
+            "VolumeUp": uinput.KEY_VOLUMEUP,
+            "MicMute": uinput.KEY_MICMUTE,
+            "BrightnessDown": uinput.KEY_BRIGHTNESSDOWN,
+            "BrightnessUp": uinput.KEY_BRIGHTNESSUP,
+            "PreviousSong": uinput.KEY_PREVIOUSSONG,
+            "PlayPause": uinput.KEY_PLAYPAUSE,
+            "NextSong": uinput.KEY_NEXTSONG,
         }
         if less_key is not None:
             self.key_map["<"] = less_key
-        self.modifier_order = list(MODIFIER_KEYS)
+        self.modifier_order = [key for key in MODIFIER_KEYS if key in self.key_map]
         self.device = uinput.Device(list(self.key_map.values()))
 
     @staticmethod
