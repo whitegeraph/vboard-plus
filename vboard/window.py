@@ -9,6 +9,8 @@ from .constants import (
     COLOR_CHOICES,
     DEFAULT_KEYBOARD_LAYOUT,
     ENHANCED_BACKGROUND_PRESET,
+    FUNCTION_KEY_SECONDARY_ACTIONS,
+    FUNCTION_ROW_KEYS,
     KEY_WIDTHS,
     LIGHT_BACKGROUND_COLORS,
     MODIFIER_KEYS,
@@ -539,6 +541,43 @@ class ScalableGrid(Gtk.Grid):
         return (1, 1)
 
 
+class ScalableKeyButton(Gtk.Button):
+    def __init__(self, key_event=None):
+        super().__init__()
+        self.key_event = key_event
+        self.primary_label = None
+        self.secondary_label = None
+
+    def set_dual_labels(self, primary, secondary=""):
+        if self.primary_label is not None:
+            self.primary_label.set_label(primary)
+        if self.secondary_label is not None:
+            self.secondary_label.set_label(secondary)
+
+    def set_label(self, label):
+        if self.primary_label is not None:
+            self.primary_label.set_label(label)
+        else:
+            super().set_label(label)
+
+    def get_label(self):
+        if self.primary_label is not None:
+            return self.primary_label.get_label()
+        return super().get_label()
+
+    def do_get_preferred_width(self):
+        return (1, 1)
+
+    def do_get_preferred_height(self):
+        return (1, 1)
+
+    def do_get_preferred_width_for_height(self, height):
+        return (1, 1)
+
+    def do_get_preferred_height_for_width(self, width):
+        return (1, 1)
+
+
 class ScalableHeaderButton(Gtk.Button):
     def __init__(self, label="", min_w=14, nat_w=40, min_h=22, nat_h=24):
         super().__init__(label=label)
@@ -654,6 +693,7 @@ class VirtualKeyboard(Gtk.Window):
     DEFAULT_WINDOW_HEIGHT = 320
     MIN_WINDOW_WIDTH = 220
     MIN_WINDOW_HEIGHT = 110
+    MIN_FUNCTION_ROW_HEIGHT = 124
     BASE_GRID_WIDTH = 720
     BASE_KEY_HEIGHT = 52
     BASE_KEY_FONT_SIZE = 19
@@ -714,7 +754,16 @@ class VirtualKeyboard(Gtk.Window):
         self.gesture_visual_feedback_enabled = True
         self.start_minimized = False
         self.keyboard_layout = DEFAULT_KEYBOARD_LAYOUT
+        self.show_function_row = True
+        self.fn_locked = True
+        self._last_fn_press_time = 0
+        self.fn_row_button = None
+        self.settings_fn_row_check = None
+        self.tray_fn_row_item = None
         self.read_settings()
+        self.MIN_WINDOW_HEIGHT = (
+            self.MIN_FUNCTION_ROW_HEIGHT if self.show_function_row else 110
+        )
 
         self.modifiers = {mod_key: False for mod_key in MODIFIER_KEYS}
         self.color_map = dict(COLOR_CHOICES)
@@ -764,6 +813,9 @@ class VirtualKeyboard(Gtk.Window):
         self._syncing_tray_items = False
         self.layout_character_lookup = {}
         self.key_font_size = self.BASE_KEY_FONT_SIZE
+        self.secondary_key_font_size = max(
+            5, int(round(self.BASE_KEY_FONT_SIZE * 0.65))
+        )
         self.header_font_size = self.BASE_HEADER_FONT_SIZE
         self.suggestion_font_size = self.BASE_SUGGESTION_FONT_SIZE
         self.layout_scale = 1.0
@@ -991,6 +1043,7 @@ class VirtualKeyboard(Gtk.Window):
         self.tray_gesture_item = None
         self.tray_visual_feedback_item = None
         self.tray_start_minimized_item = None
+        self.tray_fn_row_item = None
         self.tray_layout_items = {}
         if warning:
             print(warning)
@@ -1022,6 +1075,10 @@ class VirtualKeyboard(Gtk.Window):
             "toggled", self.on_tray_start_minimized_toggled
         )
         tray_menu.append(self.tray_start_minimized_item)
+
+        self.tray_fn_row_item = Gtk.CheckMenuItem(label="Function Row (F1–F12)")
+        self.tray_fn_row_item.connect("toggled", self.on_tray_fn_row_toggled)
+        tray_menu.append(self.tray_fn_row_item)
 
         tray_menu.append(Gtk.SeparatorMenuItem())
 
@@ -1140,6 +1197,10 @@ class VirtualKeyboard(Gtk.Window):
         if not self._syncing_tray_items:
             self.set_start_minimized(widget.get_active())
 
+    def on_tray_fn_row_toggled(self, widget):
+        if not self._syncing_tray_items:
+            self.set_function_row_visible(widget.get_active())
+
     def on_tray_layout_toggled(self, widget, layout_key):
         if not self._syncing_tray_items and widget.get_active():
             self.set_keyboard_layout(layout_key)
@@ -1158,6 +1219,8 @@ class VirtualKeyboard(Gtk.Window):
                 self.tray_visual_feedback_item.set_sensitive(self.gesture_enabled)
             if self.tray_start_minimized_item is not None:
                 self.tray_start_minimized_item.set_active(self.start_minimized)
+            if self.tray_fn_row_item is not None:
+                self.tray_fn_row_item.set_active(self.show_function_row)
             for layout_key, item in self.tray_layout_items.items():
                 item.set_active(layout_key == self.keyboard_layout)
         finally:
@@ -1174,7 +1237,14 @@ class VirtualKeyboard(Gtk.Window):
         return self.keyboard_layouts[self.keyboard_layout]
 
     def get_active_key_rows(self):
-        return self.get_layout_config()["rows"]
+        base_rows = self.get_layout_config()["rows"]
+        if getattr(self, "show_function_row", True):
+            return [list(FUNCTION_ROW_KEYS)] + base_rows
+        return base_rows
+
+    @property
+    def num_rows(self):
+        return len(self.get_active_key_rows())
 
     def get_active_key_labels(self):
         return self.get_layout_config()["labels"]
@@ -1249,6 +1319,53 @@ class VirtualKeyboard(Gtk.Window):
         self.update_suggestions()
         self.sync_tray_items()
 
+        self.save_settings()
+
+    def sync_function_row_controls(self):
+        if self.fn_row_button is not None:
+            ctx = self.fn_row_button.get_style_context()
+            if self.show_function_row:
+                ctx.add_class("active-header-toggle")
+            else:
+                ctx.remove_class("active-header-toggle")
+
+        if (
+            self.settings_fn_row_check is not None
+            and self.settings_fn_row_check.get_active() != self.show_function_row
+        ):
+            self.settings_fn_row_check.set_active(self.show_function_row)
+
+        if (
+            self.tray_fn_row_item is not None
+            and self.tray_fn_row_item.get_active() != self.show_function_row
+        ):
+            self.tray_fn_row_item.set_active(self.show_function_row)
+
+    def set_function_row_visible(self, visible):
+        visible = bool(visible)
+        if visible == self.show_function_row:
+            return
+
+        self.show_function_row = visible
+        self.MIN_WINDOW_HEIGHT = (
+            self.MIN_FUNCTION_ROW_HEIGHT if self.show_function_row else 110
+        )
+        self.apply_window_geometry_constraints()
+
+        cur_w, cur_h = self.get_size()
+        if cur_h < self.MIN_WINDOW_HEIGHT:
+            self.resize(cur_w, self.MIN_WINDOW_HEIGHT)
+
+        self.rebuild_keyboard_grid()
+
+        if self.gesture_controller is not None:
+            self.gesture_controller.refresh_layout_cache()
+            self.gesture_controller.schedule_layout_cache_refresh()
+            self.gesture_controller.queue_overlay_draw()
+
+        self._last_suggestion_scale = None
+        self.update_suggestion_bar_scale()
+        self.sync_function_row_controls()
         self.save_settings()
 
     def sync_gesture_controls(self):
@@ -1390,6 +1507,13 @@ class VirtualKeyboard(Gtk.Window):
             callbacks=1,
             hide_with_menu=False,
         )
+        self.fn_row_button = self.create_button(
+            "Fn Row",
+            self.on_header_toggle_function_row,
+            callbacks=1,
+            hide_with_menu=True,
+        )
+        self.fn_row_button.set_tooltip_text("Toggle Function row (F1-F12)")
         self.create_button("+", self.change_opacity, True, 2)
         self.create_button("-", self.change_opacity, False, 2)
         self.create_button(f"{self.opacity}")
@@ -1434,6 +1558,10 @@ class VirtualKeyboard(Gtk.Window):
                     break
 
         self.color_combobox.set_active(active_index)
+        self.sync_function_row_controls()
+
+    def on_header_toggle_function_row(self, widget=None):
+        self.set_function_row_visible(not self.show_function_row)
 
     def open_settings_dialog(self, widget=None):
         if self.settings_dialog is not None:
@@ -1483,14 +1611,22 @@ class VirtualKeyboard(Gtk.Window):
         )
         grid.attach(start_minimized_check, 0, 3, 2, 1)
 
+        fn_row_check = Gtk.CheckButton(label="Function Row (F1–F12)")
+        fn_row_check.set_active(self.show_function_row)
+        fn_row_check.connect(
+            "toggled", lambda w: self.set_function_row_visible(w.get_active())
+        )
+        grid.attach(fn_row_check, 0, 4, 2, 1)
+        self.settings_fn_row_check = fn_row_check
+
         layout_label = Gtk.Label(label="Keyboard Layout", xalign=0)
         layout_combo = Gtk.ComboBoxText()
         for layout_key, layout_name in self.keyboard_layout_choices:
             layout_combo.append(layout_key, layout_name)
         layout_combo.set_active_id(self.keyboard_layout)
         layout_combo.connect("changed", self.on_settings_layout_changed)
-        grid.attach(layout_label, 0, 4, 1, 1)
-        grid.attach(layout_combo, 1, 4, 1, 1)
+        grid.attach(layout_label, 0, 5, 1, 1)
+        grid.attach(layout_combo, 1, 5, 1, 1)
 
         about_button = Gtk.Button(label="About")
         about_button.connect("clicked", self.on_settings_about_clicked)
@@ -1498,9 +1634,9 @@ class VirtualKeyboard(Gtk.Window):
         report_bugs_button.connect("clicked", self.on_settings_report_bugs_clicked)
         quit_button = Gtk.Button(label="Quit")
         quit_button.connect("clicked", self.on_settings_quit_clicked)
-        grid.attach(about_button, 0, 5, 1, 1)
-        grid.attach(report_bugs_button, 1, 5, 1, 1)
-        grid.attach(quit_button, 2, 5, 1, 1)
+        grid.attach(about_button, 0, 6, 1, 1)
+        grid.attach(report_bugs_button, 1, 6, 1, 1)
+        grid.attach(quit_button, 2, 6, 1, 1)
 
         self.settings_dialog = dialog
         dialog.show_all()
@@ -1512,6 +1648,7 @@ class VirtualKeyboard(Gtk.Window):
         self.settings_dialog = None
         self.settings_gesture_check = None
         self.settings_visual_feedback_check = None
+        self.settings_fn_row_check = None
 
     def on_settings_prediction_toggled(self, widget):
         self.set_text_prediction_enabled(widget.get_active())
@@ -1679,6 +1816,10 @@ class VirtualKeyboard(Gtk.Window):
             6,
             min(42, int(round(self.BASE_KEY_FONT_SIZE * font_scale))),
         )
+        secondary_key_font_size = max(
+            5,
+            min(24, int(round(key_font_size * 0.65))),
+        )
         header_font_size = max(
             8,
             min(
@@ -1716,6 +1857,7 @@ class VirtualKeyboard(Gtk.Window):
 
         scale_values = (
             key_font_size,
+            secondary_key_font_size,
             header_font_size,
             suggestion_height,
             suggestion_font_size,
@@ -1732,6 +1874,7 @@ class VirtualKeyboard(Gtk.Window):
 
         self._last_suggestion_scale = scale_values
         self.key_font_size = key_font_size
+        self.secondary_key_font_size = secondary_key_font_size
         self.header_font_size = header_font_size
         self.suggestion_font_size = suggestion_font_size
         self.layout_scale = quantized_scale
@@ -1742,7 +1885,7 @@ class VirtualKeyboard(Gtk.Window):
         for h_btn in getattr(self, "header_buttons", []):
             if isinstance(h_btn, ScalableHeaderButton):
                 base_w = 54 if h_btn.get_name() == "esc-button" else (
-                    52 if h_btn.get_label() == "Options" else 36
+                    52 if h_btn.get_label() in ("Options", "Fn Row") else 36
                 )
                 h_btn.set_target_size(
                     nat_w=max(14, int(round(base_w * min(1.0, width_scale)))),
@@ -1804,7 +1947,7 @@ class VirtualKeyboard(Gtk.Window):
         callbacks=0,
         hide_with_menu=True,
     ):
-        nat_w = 52 if label_ == "Options" else (44 if len(label_) > 1 else 36)
+        nat_w = 52 if label_ in ("Options", "Fn Row") else (44 if len(label_) > 1 else 36)
         button = ScalableHeaderButton(
             label=label_,
             min_w=14,
@@ -2053,6 +2196,27 @@ class VirtualKeyboard(Gtk.Window):
                 font-weight: 500;
             }}
 
+            #vboard-main #grid button label.key-primary-label {{
+                color: {rgba((244, 247, 251), 1.0)};
+                font-size: {self.key_font_size}px;
+                font-weight: 500;
+            }}
+
+            #vboard-main #grid button label.key-secondary-label {{
+                color: {rgba((186, 201, 224), 0.82)};
+                font-size: {self.secondary_key_font_size}px;
+                font-weight: 500;
+            }}
+
+            #vboard-main #grid button.media-mode-active label.key-primary-label {{
+                color: {rgba((186, 201, 224), 0.55)};
+            }}
+
+            #vboard-main #grid button.media-mode-active label.key-secondary-label {{
+                color: {rgba((255, 255, 255), 1.0)};
+                font-weight: 600;
+            }}
+
             #vboard-main #grid button {{
                 min-width: 0px;
                 min-height: 0px;
@@ -2103,6 +2267,29 @@ class VirtualKeyboard(Gtk.Window):
                     {rgba((55, 69, 90), 1.0)}
                 );
                 {gnome_specific};
+            }}
+
+            #vboard-main #grid button.locked-modifier {{
+                border: 1px solid {rgba((118, 172, 255), 0.95)};
+                background-color: {rgba((34, 52, 78), 1.0)};
+                background-image: linear-gradient(
+                    to bottom,
+                    {rgba((58, 86, 126), 1.0)},
+                    {rgba((30, 46, 72), 1.0)}
+                );
+                box-shadow:
+                    inset 0 1px {rgba((255, 255, 255), 0.16)},
+                    0 0 3px {rgba((90, 150, 240), 0.4)};
+                {gnome_specific};
+            }}
+
+            #vboard-main #grid button.locked-modifier label {{
+                color: {rgba((240, 246, 255), 1.0)};
+            }}
+
+            #vboard-main headerbar button.active-header-toggle {{
+                border: 1px solid {rgba((118, 172, 255), 0.9)};
+                background-color: {rgba((48, 65, 92), 1.0)};
             }}
 
             #vboard-main #grid button.active-command-modifier {{
@@ -2276,6 +2463,29 @@ class VirtualKeyboard(Gtk.Window):
                 font-weight: 500;
             }}
 
+            #vboard-main #grid button label.key-primary-label {{
+                color: rgb({rgb_css(text_rgb)});
+                font-size: {self.key_font_size}px;
+                font-weight: 500;
+            }}
+
+            #vboard-main #grid button label.key-secondary-label {{
+                color: rgb({rgb_css(text_rgb)});
+                opacity: 0.72;
+                font-size: {self.secondary_key_font_size}px;
+                font-weight: 500;
+            }}
+
+            #vboard-main #grid button.media-mode-active label.key-primary-label {{
+                opacity: 0.55;
+            }}
+
+            #vboard-main #grid button.media-mode-active label.key-secondary-label {{
+                color: {accent};
+                opacity: 1.0;
+                font-weight: 600;
+            }}
+
             #vboard-main #grid button {{
                 min-width: 0px;
                 min-height: 0px;
@@ -2308,6 +2518,17 @@ class VirtualKeyboard(Gtk.Window):
                 border: 1px solid {accent};
                 background-color: {rgba(pressed_rgb, 1.0)};
                 {gnome_specific};
+            }}
+
+            #vboard-main #grid button.locked-modifier {{
+                border: 1px solid {accent};
+                background-color: {rgba(pressed_rgb, 1.0)};
+                {gnome_specific};
+            }}
+
+            #vboard-main headerbar button.active-header-toggle {{
+                border: 1px solid {accent};
+                background-color: {rgba(key_rgb, 0.9)};
             }}
 
             #vboard-main #grid button.active-command-modifier {{
@@ -2427,6 +2648,27 @@ class VirtualKeyboard(Gtk.Window):
                 font-size: {self.key_font_size}px;
             }}
 
+            #vboard-main #grid button label.key-primary-label {{
+                color: {self.text_color};
+                font-size: {self.key_font_size}px;
+            }}
+
+            #vboard-main #grid button label.key-secondary-label {{
+                color: {self.text_color};
+                opacity: 0.72;
+                font-size: {self.secondary_key_font_size}px;
+            }}
+
+            #vboard-main #grid button.media-mode-active label.key-primary-label {{
+                opacity: 0.55;
+            }}
+
+            #vboard-main #grid button.media-mode-active label.key-secondary-label {{
+                color: #00CACB;
+                opacity: 1.0;
+                font-weight: bold;
+            }}
+
             #vboard-main #grid button {{
                 min-width: 0px;
                 min-height: 0px;
@@ -2453,6 +2695,16 @@ class VirtualKeyboard(Gtk.Window):
             #vboard-main #grid button.active-modifier {{
                 border: 1px solid #00CACB;
                 {gnome_specific}
+            }}
+
+            #vboard-main #grid button.locked-modifier {{
+                border: 1px solid #00CACB;
+                background-color: rgba({self.bg_color}, 0.5);
+                {gnome_specific}
+            }}
+
+            #vboard-main headerbar button.active-header-toggle {{
+                border: 1px solid #00CACB;
             }}
 
             #vboard-main #grid button.active-command-modifier {{
@@ -2537,7 +2789,26 @@ class VirtualKeyboard(Gtk.Window):
         col = 0
 
         for key_event in keys:
-            button = Gtk.Button(label=self.get_button_label(key_event))
+            if key_event in FUNCTION_ROW_KEYS:
+                button = ScalableKeyButton(key_event=key_event)
+                vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+                vbox.set_halign(Gtk.Align.CENTER)
+                vbox.set_valign(Gtk.Align.CENTER)
+
+                primary_label = Gtk.Label()
+                primary_label.get_style_context().add_class("key-primary-label")
+                secondary_label = Gtk.Label()
+                secondary_label.get_style_context().add_class("key-secondary-label")
+
+                vbox.pack_start(primary_label, True, True, 0)
+                vbox.pack_start(secondary_label, False, False, 0)
+                button.add(vbox)
+                button.primary_label = primary_label
+                button.secondary_label = secondary_label
+            else:
+                button = ScalableKeyButton(key_event=key_event)
+                button.set_label(self.get_button_label(key_event))
+
             button.set_hexpand(True)
             button.set_vexpand(True)
             button.add_events(
@@ -2557,9 +2828,14 @@ class VirtualKeyboard(Gtk.Window):
             grid.attach(button, col, row_index, width, 1)
             col += width
 
+        self.update_key_labels()
+
     def get_button_label(self, key_event):
         if key_event == "CapsLock":
             return "Caps"
+
+        if key_event == "Fn":
+            return "Fn"
 
         if key_event in MODIFIER_KEYS:
             return key_event[:-2]
@@ -2579,13 +2855,63 @@ class VirtualKeyboard(Gtk.Window):
         return key_label
 
     def update_key_labels(self):
-        for key_label, button in self.key_buttons.items():
-            button.set_label(self.get_button_label(key_label))
+        send_f_keys = bool(getattr(self, "fn_locked", True)) ^ bool(
+            self.modifiers.get("Fn", False)
+        )
+        for key_event, button in self.key_buttons.items():
+            if key_event in FUNCTION_ROW_KEYS:
+                if key_event == "Fn":
+                    if self.modifiers.get("Fn", False):
+                        sec_label = "1-SHOT"
+                    elif getattr(self, "fn_locked", True):
+                        sec_label = "LOCK"
+                    else:
+                        sec_label = "MEDIA"
+
+                    if isinstance(button, ScalableKeyButton):
+                        button.set_dual_labels("Fn", sec_label)
+                    else:
+                        button.set_label("Fn")
+
+                    style_context = button.get_style_context()
+                    style_context.remove_class("active-modifier")
+                    style_context.remove_class("active-command-modifier")
+                    style_context.remove_class("locked-modifier")
+                    if self.modifiers.get("Fn", False):
+                        style_context.add_class("active-command-modifier")
+                    elif getattr(self, "fn_locked", True):
+                        style_context.add_class("locked-modifier")
+                else:
+                    sec_info = FUNCTION_KEY_SECONDARY_ACTIONS.get(key_event)
+                    sec_label = sec_info["label"] if sec_info else ""
+                    if isinstance(button, ScalableKeyButton):
+                        button.set_dual_labels(key_event, sec_label)
+                    else:
+                        button.set_label(key_event)
+
+                    style_context = button.get_style_context()
+                    if not send_f_keys and sec_info:
+                        style_context.add_class("media-mode-active")
+                    else:
+                        style_context.remove_class("media-mode-active")
+            else:
+                button.set_label(self.get_button_label(key_event))
 
     def update_modifier(self, key_event, value):
         self.modifiers[key_event] = value
-        button = self.modifier_buttons[key_event]
+        button = self.modifier_buttons.get(key_event)
+        if button is None:
+            return
         style_context = button.get_style_context()
+        if key_event == "Fn":
+            style_context.remove_class("active-modifier")
+            style_context.remove_class("active-command-modifier")
+            style_context.remove_class("locked-modifier")
+            if value:
+                style_context.add_class("active-command-modifier")
+            elif getattr(self, "fn_locked", True):
+                style_context.add_class("locked-modifier")
+            return
         modifier_class = (
             "active-command-modifier"
             if key_event.startswith(("Shift", "Ctrl", "Alt"))
@@ -2623,7 +2949,10 @@ class VirtualKeyboard(Gtk.Window):
         self.update_suggestions()
 
     def on_key_button_press_event(self, widget, event, key_event):
-        if event.type in (Gdk.EventType._2BUTTON_PRESS, Gdk.EventType._3BUTTON_PRESS):
+        if event.type == Gdk.EventType._3BUTTON_PRESS:
+            return True
+
+        if event.type == Gdk.EventType._2BUTTON_PRESS and key_event != "Fn":
             return True
 
         self.stop_key_repeat()
@@ -2637,9 +2966,31 @@ class VirtualKeyboard(Gtk.Window):
         if event.button != 1:
             return False
 
+        if key_event != "Fn":
+            self._last_fn_press_time = 0
+
         if key_event == "CapsLock":
             self.toggle_caps_lock()
             self.reset_modifiers()
+            return False
+
+        if key_event == "Fn":
+            now = GLib.get_monotonic_time() / 1_000_000.0
+            last_press = getattr(self, "_last_fn_press_time", 0)
+            is_double = (
+                event.type == Gdk.EventType._2BUTTON_PRESS
+                or (last_press > 0 and (now - last_press) <= 0.400)
+            )
+            if is_double:
+                self._last_fn_press_time = 0
+                self.modifiers["Fn"] = False
+                self.fn_locked = not getattr(self, "fn_locked", True)
+                self.save_settings()
+            else:
+                self._last_fn_press_time = now
+                self.update_modifier("Fn", not self.modifiers.get("Fn", False))
+
+            self.update_key_labels()
             return False
 
         if key_event in self.modifiers:
@@ -2650,6 +3001,18 @@ class VirtualKeyboard(Gtk.Window):
                 self.update_modifier("Shift_R", False)
 
             self.update_key_labels()
+            return False
+
+        if key_event in FUNCTION_ROW_KEYS:
+            send_f_keys = bool(getattr(self, "fn_locked", True)) ^ bool(
+                self.modifiers.get("Fn", False)
+            )
+            if not send_f_keys and key_event in FUNCTION_KEY_SECONDARY_ACTIONS:
+                target_key = FUNCTION_KEY_SECONDARY_ACTIONS[key_event]["action"]
+            else:
+                target_key = key_event
+            self.emit_key(target_key)
+            self.delay_source = GLib.timeout_add(400, self.start_repeat, target_key)
             return False
 
         if self.gesture_controller is not None and self.gesture_controller.handle_key_press(
@@ -2755,7 +3118,22 @@ class VirtualKeyboard(Gtk.Window):
             self.update_suggestions()
             return
 
-        if key_event in {"Space", "Tab", "Enter", "Esc", "CapsLock", "←", "→", "↑", "↓"}:
+        if (
+            key_event in {"Space", "Tab", "Enter", "Esc", "CapsLock", "←", "→", "↑", "↓"}
+            or key_event in FUNCTION_ROW_KEYS
+            or key_event
+            in {
+                "Mute",
+                "VolumeDown",
+                "VolumeUp",
+                "MicMute",
+                "BrightnessDown",
+                "BrightnessUp",
+                "PreviousSong",
+                "PlayPause",
+                "NextSong",
+            }
+        ):
             self.current_word = ""
             self.update_suggestions()
             return
@@ -2920,6 +3298,16 @@ class VirtualKeyboard(Gtk.Window):
                         fallback=DEFAULT_KEYBOARD_LAYOUT,
                     )
                 )
+                self.show_function_row = self.config.getboolean(
+                    "DEFAULT",
+                    "show_function_row",
+                    fallback=True,
+                )
+                self.fn_locked = self.config.getboolean(
+                    "DEFAULT",
+                    "fn_locked",
+                    fallback=True,
+                )
                 width_raw = self.config.get("DEFAULT", "width", fallback="0")
                 height_raw = self.config.get("DEFAULT", "height", fallback="0")
                 self.width, self.height = self.validate_window_size(
@@ -2962,6 +3350,8 @@ class VirtualKeyboard(Gtk.Window):
             "gesture_visual_feedback_enabled": str(
                 self.gesture_visual_feedback_enabled
             ),
+            "show_function_row": str(self.show_function_row),
+            "fn_locked": str(self.fn_locked),
             "keyboard_layout": self.keyboard_layout,
             "width": str(self.width),
             "height": str(self.height),
