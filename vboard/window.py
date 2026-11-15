@@ -688,6 +688,7 @@ class VirtualKeyboard(Gtk.Window):
         self.connect("window-state-event", self.on_window_state_changed)
         self._keep_above_retries = 0
         self._keep_above_timer_id = None
+        self._save_settings_timer_id = None
         self.width = self.DEFAULT_WINDOW_WIDTH
         self.height = self.DEFAULT_WINDOW_HEIGHT
         self.pos_x = 0
@@ -718,9 +719,9 @@ class VirtualKeyboard(Gtk.Window):
         self.modifiers = {mod_key: False for mod_key in MODIFIER_KEYS}
         self.color_map = dict(COLOR_CHOICES)
         self.apply_window_geometry_constraints()
-        if self.width > 0 and self.height > 0:
-            self.set_default_size(self.width, self.height)
-            self.resize(self.width, self.height)
+        self.width, self.height = self.validate_window_size(self.width, self.height)
+        self.set_default_size(self.width, self.height)
+        self.resize(self.width, self.height)
 
         self.header_title_label = Gtk.Label(label=APP_DISPLAY_NAME)
         self.header_title_label.get_style_context().add_class("title")
@@ -830,6 +831,8 @@ class VirtualKeyboard(Gtk.Window):
         for row_index, keys in enumerate(self.get_active_key_rows()):
             self.create_row(grid, row_index, keys)
 
+        self.set_default_size(self.width, self.height)
+        self.resize(self.width, self.height)
         self.update_suggestion_bar_scale()
         self.apply_css()
         if self.text_prediction_enabled:
@@ -846,6 +849,70 @@ class VirtualKeyboard(Gtk.Window):
         geometry.min_width = self.MIN_WINDOW_WIDTH
         geometry.min_height = self.MIN_WINDOW_HEIGHT
         self.set_geometry_hints(None, geometry, Gdk.WindowHints.MIN_SIZE)
+
+    def get_screen_dimensions(self):
+        screen_width = 0
+        screen_height = 0
+        try:
+            display = self.get_display() if hasattr(self, "get_display") else None
+            if display is None:
+                display = Gdk.Display.get_default()
+            if display is not None and hasattr(display, "get_n_monitors"):
+                for index in range(display.get_n_monitors()):
+                    monitor = display.get_monitor(index)
+                    if monitor is not None:
+                        geometry = monitor.get_geometry()
+                        screen_width = max(
+                            screen_width,
+                            geometry.x + geometry.width,
+                            geometry.width,
+                        )
+                        screen_height = max(
+                            screen_height,
+                            geometry.y + geometry.height,
+                            geometry.height,
+                        )
+        except Exception:
+            pass
+
+        if screen_width <= 0 or screen_height <= 0:
+            try:
+                screen = self.get_screen() if hasattr(self, "get_screen") else None
+                if screen is None:
+                    screen = Gdk.Screen.get_default()
+                if screen is not None:
+                    screen_width = max(screen_width, screen.get_width())
+                    screen_height = max(screen_height, screen.get_height())
+            except Exception:
+                pass
+
+        if screen_width <= 0 or screen_height <= 0:
+            return (3840, 2160)
+        return (screen_width, screen_height)
+
+    def validate_window_size(self, width, height):
+        screen_width, screen_height = self.get_screen_dimensions()
+        default_w = min(self.DEFAULT_WINDOW_WIDTH, screen_width)
+        default_h = min(self.DEFAULT_WINDOW_HEIGHT, screen_height)
+        if isinstance(width, bool) or isinstance(height, bool):
+            return (default_w, default_h)
+        try:
+            parsed_w = int(width)
+            parsed_h = int(height)
+        except (ValueError, TypeError):
+            return (default_w, default_h)
+
+        if (
+            parsed_w <= 0
+            or parsed_h <= 0
+            or parsed_w > screen_width
+            or parsed_h > screen_height
+        ):
+            return (default_w, default_h)
+
+        clamped_w = max(self.MIN_WINDOW_WIDTH, parsed_w)
+        clamped_h = max(self.MIN_WINDOW_HEIGHT, parsed_h)
+        return (min(clamped_w, screen_width), min(clamped_h, screen_height))
 
     def get_app_icon_name(self):
         icon_theme = Gtk.IconTheme.get_default()
@@ -1007,9 +1074,12 @@ class VirtualKeyboard(Gtk.Window):
 
     def toggle_visibility(self):
         if self.get_visible():
+            self.save_settings()
             self.hide()
         else:
             self.show_all()
+            if self.width > 0 and self.height > 0:
+                self.resize(self.width, self.height)
             self.present()
             self.request_keep_above()
         self.update_tray_menu()
@@ -1531,8 +1601,28 @@ class VirtualKeyboard(Gtk.Window):
         self.suggestion_engine.ensure_loaded()
         return False
 
+    def schedule_save_settings(self, delay_ms=250):
+        if self._save_settings_timer_id is not None:
+            GLib.source_remove(self._save_settings_timer_id)
+        self._save_settings_timer_id = GLib.timeout_add(
+            delay_ms,
+            self._flush_scheduled_save_settings,
+        )
+
+    def _flush_scheduled_save_settings(self):
+        self._save_settings_timer_id = None
+        self.save_settings()
+        return False
+
+    def cancel_scheduled_save_settings(self):
+        if self._save_settings_timer_id is not None:
+            GLib.source_remove(self._save_settings_timer_id)
+            self._save_settings_timer_id = None
+
     def on_resize(self, widget, event):
-        self.width, self.height = self.get_size()
+        width, height = self.get_size()
+        if width > 0 and height > 0:
+            self.width, self.height = self.validate_window_size(width, height)
         x, y = self.get_position()
         if x > 0 and y > 0:
             self.pos_x, self.pos_y = x, y
@@ -1540,6 +1630,8 @@ class VirtualKeyboard(Gtk.Window):
             self.gesture_controller.refresh_layout_cache()
             self.gesture_controller.schedule_layout_cache_refresh()
         self.update_suggestion_bar_scale()
+        self.schedule_save_settings()
+        return False
 
     def on_grid_size_allocate(self, widget, allocation):
         if self.gesture_controller is not None:
@@ -2793,8 +2885,12 @@ class VirtualKeyboard(Gtk.Window):
         try:
             if os.path.exists(self.CONFIG_FILE):
                 self.config.read(self.CONFIG_FILE)
-                self.bg_color = self.config.get("DEFAULT", "bg_color").replace(" ", "")
-                self.opacity = self.config.get("DEFAULT", "opacity")
+                self.bg_color = self.config.get(
+                    "DEFAULT", "bg_color", fallback=self.bg_color
+                ).replace(" ", "")
+                self.opacity = self.config.get(
+                    "DEFAULT", "opacity", fallback=self.opacity
+                )
                 self.text_color = self.config.get("DEFAULT", "text_color", fallback="white")
                 self.style_variant = self.config.get(
                     "DEFAULT", "style_variant", fallback="classic"
@@ -2824,8 +2920,11 @@ class VirtualKeyboard(Gtk.Window):
                         fallback=DEFAULT_KEYBOARD_LAYOUT,
                     )
                 )
-                self.width = self.config.getint("DEFAULT", "width", fallback=0)
-                self.height = self.config.getint("DEFAULT", "height", fallback=0)
+                width_raw = self.config.get("DEFAULT", "width", fallback="0")
+                height_raw = self.config.get("DEFAULT", "height", fallback="0")
+                self.width, self.height = self.validate_window_size(
+                    width_raw, height_raw
+                )
                 pos_x_str = self.config.get("DEFAULT", "pos_x", fallback="0")
                 pos_y_str = self.config.get("DEFAULT", "pos_y", fallback="0")
                 try:
@@ -2837,10 +2936,21 @@ class VirtualKeyboard(Gtk.Window):
                     self.pos_x = self.config_pos_x = 0
                     self.pos_y = self.config_pos_y = 0
 
-        except configparser.Error as exc:
+        except (configparser.Error, ValueError) as exc:
             print(f"Warning: Could not read config file ({exc}). Using default values.")
+            self.width, self.height = self.validate_window_size(0, 0)
 
     def save_settings(self):
+        self.cancel_scheduled_save_settings()
+        if self.get_visible():
+            current_w, current_h = self.get_size()
+            if current_w > 0 and current_h > 0:
+                self.width, self.height = self.validate_window_size(
+                    current_w, current_h
+                )
+        self.width, self.height = self.validate_window_size(
+            self.width, self.height
+        )
         self.config["DEFAULT"] = {
             "bg_color": self.bg_color,
             "opacity": self.opacity,
@@ -2853,8 +2963,8 @@ class VirtualKeyboard(Gtk.Window):
                 self.gesture_visual_feedback_enabled
             ),
             "keyboard_layout": self.keyboard_layout,
-            "width": self.width,
-            "height": self.height,
+            "width": str(self.width),
+            "height": str(self.height),
             "pos_x": str(self.pos_x),
             "pos_y": str(self.pos_y),
         }
