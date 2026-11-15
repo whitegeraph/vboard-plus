@@ -38,7 +38,13 @@ from .gtk import (
     Pango,
 )
 from .input_backends import NullInputBackend, UInputBackend
-from .layouts import get_default_layout_key, get_layout_choices, load_keyboard_layouts
+from .layouts import (
+    get_default_layout_key,
+    get_layout_choices,
+    load_keyboard_layouts,
+    resolve_gnome_input_source,
+    resolve_keymap_layout,
+)
 from .suggestions import HunspellSuggestionEngine
 
 
@@ -151,6 +157,8 @@ class StatusNotifierTrayIcon:
     MENU_SEPARATOR_ID = 5
     MENU_LAYOUT_ID = 6
     MENU_SECOND_SEPARATOR_ID = 100
+    MENU_FOLLOW_LAYOUT_ID = 12
+    MENU_LAYOUT_SEPARATOR_ID = 13
     MENU_LAYOUT_ID_OFFSET = 1000
 
     def __init__(self, window, icon_name):
@@ -425,20 +433,31 @@ class StatusNotifierTrayIcon:
                 properties.update(row_properties)
                 break
         else:
-            for index, (layout_key, layout_label) in enumerate(
-                self.window.keyboard_layout_choices
-            ):
-                if self.layout_item_id(index) == item_id:
-                    properties.update(
-                        {
-                            "label": layout_label,
-                            "toggle-type": "radio",
-                            "toggle-state": int(
-                                layout_key == self.window.keyboard_layout
-                            ),
-                        }
-                    )
-                    break
+            if item_id == self.MENU_FOLLOW_LAYOUT_ID:
+                properties.update(
+                    {
+                        "label": "Follow System Layout",
+                        "toggle-type": "checkmark",
+                        "toggle-state": int(self.window.follow_system_layout),
+                    }
+                )
+            elif item_id == self.MENU_LAYOUT_SEPARATOR_ID:
+                properties.update({"type": "separator", "enabled": False})
+            else:
+                for index, (layout_key, layout_label) in enumerate(
+                    self.window.keyboard_layout_choices
+                ):
+                    if self.layout_item_id(index) == item_id:
+                        properties.update(
+                            {
+                                "label": layout_label,
+                                "toggle-type": "radio",
+                                "toggle-state": int(
+                                    layout_key == self.window.keyboard_layout
+                                ),
+                            }
+                        )
+                        break
 
         return {
             name: self.menu_property_variant(value)
@@ -460,6 +479,9 @@ class StatusNotifierTrayIcon:
 
     def get_menu_layout(self):
         layout_children = [
+            self.menu_layout_item(self.MENU_FOLLOW_LAYOUT_ID),
+            self.menu_layout_item(self.MENU_LAYOUT_SEPARATOR_ID),
+        ] + [
             self.menu_layout_item(self.layout_item_id(index))
             for index, _choice in enumerate(self.window.keyboard_layout_choices)
         ]
@@ -489,6 +511,11 @@ class StatusNotifierTrayIcon:
             ),
             11: lambda: self.window.set_function_row_visible(
                 not self.window.show_function_row
+            ),
+            self.MENU_FOLLOW_LAYOUT_ID: (
+                lambda: self.window.set_follow_system_layout(
+                    not self.window.follow_system_layout
+                )
             ),
             8: lambda: self.window.on_tray_about(None),
             9: lambda: self.window.on_tray_quit(None),
@@ -800,12 +827,26 @@ class VirtualKeyboard(Gtk.Window):
         self.gesture_visual_feedback_enabled = True
         self.start_minimized = False
         self.keyboard_layout = DEFAULT_KEYBOARD_LAYOUT
+        self.follow_system_layout = True
         self.show_function_row = True
         self.fn_locked = True
         self.fn_row_button = None
         self.settings_fn_row_check = None
+        self.settings_follow_layout_check = None
+        self.settings_layout_combo = None
         self.tray_fn_row_item = None
+        self.tray_follow_layout_item = None
+        self._input_sources_settings = None
+        self._input_sources_signal_ids = []
+        self._layout_keymap = None
+        self._keymap_layout_handler_id = None
+        self._syncing_settings_controls = False
         self.read_settings()
+        self.init_system_layout_monitor()
+        if self.follow_system_layout:
+            detected_layout = self.detect_system_keyboard_layout()
+            if detected_layout is not None:
+                self.keyboard_layout = self.normalize_keyboard_layout(detected_layout)
         self.MIN_WINDOW_HEIGHT = (
             self.MIN_FUNCTION_ROW_HEIGHT if self.show_function_row else 110
         )
@@ -1090,6 +1131,7 @@ class VirtualKeyboard(Gtk.Window):
         self.tray_visual_feedback_item = None
         self.tray_start_minimized_item = None
         self.tray_fn_row_item = None
+        self.tray_follow_layout_item = None
         self.tray_layout_items = {}
         if warning:
             print(warning)
@@ -1130,6 +1172,13 @@ class VirtualKeyboard(Gtk.Window):
 
         layout_item = Gtk.MenuItem(label="Keyboard Layout")
         layout_menu = Gtk.Menu()
+        self.tray_follow_layout_item = Gtk.CheckMenuItem(label="Follow System Layout")
+        self.tray_follow_layout_item.connect(
+            "toggled", self.on_tray_follow_layout_toggled
+        )
+        layout_menu.append(self.tray_follow_layout_item)
+        layout_menu.append(Gtk.SeparatorMenuItem())
+
         self.tray_layout_items = {}
         first_layout_item = None
         for layout_key, layout_label in self.keyboard_layout_choices:
@@ -1247,6 +1296,10 @@ class VirtualKeyboard(Gtk.Window):
         if not self._syncing_tray_items:
             self.set_function_row_visible(widget.get_active())
 
+    def on_tray_follow_layout_toggled(self, widget):
+        if not self._syncing_tray_items:
+            self.set_follow_system_layout(widget.get_active())
+
     def on_tray_layout_toggled(self, widget, layout_key):
         if not self._syncing_tray_items and widget.get_active():
             self.set_keyboard_layout(layout_key)
@@ -1267,6 +1320,8 @@ class VirtualKeyboard(Gtk.Window):
                 self.tray_start_minimized_item.set_active(self.start_minimized)
             if self.tray_fn_row_item is not None:
                 self.tray_fn_row_item.set_active(self.show_function_row)
+            if self.tray_follow_layout_item is not None:
+                self.tray_follow_layout_item.set_active(self.follow_system_layout)
             for layout_key, item in self.tray_layout_items.items():
                 item.set_active(layout_key == self.keyboard_layout)
         finally:
@@ -1375,7 +1430,125 @@ class VirtualKeyboard(Gtk.Window):
         self.grid.show_all()
         self.update_suggestion_bar_scale()
 
-    def set_keyboard_layout(self, layout_key):
+    def init_system_layout_monitor(self):
+        schema_source = Gio.SettingsSchemaSource.get_default()
+        schema = (
+            schema_source.lookup("org.gnome.desktop.input-sources", True)
+            if schema_source is not None
+            else None
+        )
+        if schema is not None:
+            try:
+                self._input_sources_settings = Gio.Settings.new_full(
+                    schema, None, None
+                )
+                for signal_name in (
+                    "changed::mru-sources",
+                    "changed::sources",
+                    "changed::current",
+                ):
+                    handler_id = self._input_sources_settings.connect(
+                        signal_name, self.on_system_input_sources_changed
+                    )
+                    self._input_sources_signal_ids.append(handler_id)
+            except (TypeError, RuntimeError):
+                self._input_sources_settings = None
+                self._input_sources_signal_ids = []
+
+        try:
+            display = self.get_display() if hasattr(self, "get_display") else None
+            if display is None:
+                display = Gdk.Display.get_default()
+            keymap = (
+                Gdk.Keymap.get_for_display(display) if display is not None else None
+            )
+            if keymap is not None:
+                self._layout_keymap = keymap
+                self._keymap_layout_handler_id = keymap.connect(
+                    "keys-changed", self.on_system_keymap_changed
+                )
+        except (AttributeError, TypeError, RuntimeError):
+            self._layout_keymap = None
+            self._keymap_layout_handler_id = None
+
+    def _has_configured_gnome_input_sources(self):
+        if self._input_sources_settings is None:
+            return False
+        try:
+            sources = self._input_sources_settings.get_value("sources").unpack()
+            mru_sources = self._input_sources_settings.get_value(
+                "mru-sources"
+            ).unpack()
+            return bool(sources or mru_sources)
+        except (TypeError, RuntimeError):
+            return False
+
+    def detect_system_keyboard_layout(self):
+        if self._input_sources_settings is not None:
+            try:
+                mru_sources = self._input_sources_settings.get_value(
+                    "mru-sources"
+                ).unpack()
+                sources = self._input_sources_settings.get_value("sources").unpack()
+                current_index = self._input_sources_settings.get_uint("current")
+                if sources or mru_sources:
+                    return resolve_gnome_input_source(
+                        mru_sources,
+                        sources,
+                        current_index,
+                        self.keyboard_layouts,
+                    )
+            except (TypeError, RuntimeError):
+                pass
+
+        if self._layout_keymap is not None:
+            return resolve_keymap_layout(
+                self._layout_keymap,
+                self.keyboard_layouts,
+                Gdk.keyval_name,
+            )
+        return None
+
+    def sync_keyboard_layout_from_system(self, save=False):
+        layout_key = self.detect_system_keyboard_layout()
+        if layout_key is not None:
+            self.set_keyboard_layout(layout_key, save=save)
+
+    def on_system_input_sources_changed(self, settings=None, key=None):
+        if self.follow_system_layout:
+            self.sync_keyboard_layout_from_system(save=False)
+
+    def on_system_keymap_changed(self, keymap=None):
+        if not self.follow_system_layout:
+            return
+        if self._has_configured_gnome_input_sources():
+            return
+        self.sync_keyboard_layout_from_system(save=False)
+
+    def set_follow_system_layout(self, enabled, sync_now=True, save=True):
+        enabled = bool(enabled)
+        changed = enabled != self.follow_system_layout
+        self.follow_system_layout = enabled
+        self.sync_settings_layout_controls()
+        self.sync_tray_items()
+        if enabled and sync_now:
+            self.sync_keyboard_layout_from_system(save=False)
+        if save and changed:
+            self.save_settings()
+
+    def sync_settings_layout_controls(self):
+        self._syncing_settings_controls = True
+        try:
+            if self.settings_layout_combo is not None:
+                self.settings_layout_combo.set_active_id(self.keyboard_layout)
+            if self.settings_follow_layout_check is not None:
+                self.settings_follow_layout_check.set_active(
+                    self.follow_system_layout
+                )
+        finally:
+            self._syncing_settings_controls = False
+
+    def set_keyboard_layout(self, layout_key, save=True):
         normalized_layout = self.normalize_keyboard_layout(layout_key)
         if normalized_layout == self.keyboard_layout:
             return
@@ -1390,9 +1563,11 @@ class VirtualKeyboard(Gtk.Window):
         self.clear_suggestion_override(update=False)
         self.current_word = ""
         self.update_suggestions()
+        self.sync_settings_layout_controls()
         self.sync_tray_items()
 
-        self.save_settings()
+        if save:
+            self.save_settings()
 
     def sync_function_row_controls(self):
         if self.fn_row_button is not None:
@@ -1701,6 +1876,15 @@ class VirtualKeyboard(Gtk.Window):
         layout_combo.connect("changed", self.on_settings_layout_changed)
         grid.attach(layout_label, 0, 5, 1, 1)
         grid.attach(layout_combo, 1, 5, 1, 1)
+        self.settings_layout_combo = layout_combo
+
+        follow_layout_check = Gtk.CheckButton(label="Follow System Layout")
+        follow_layout_check.set_active(self.follow_system_layout)
+        follow_layout_check.connect(
+            "toggled", self.on_settings_follow_layout_toggled
+        )
+        grid.attach(follow_layout_check, 0, 6, 2, 1)
+        self.settings_follow_layout_check = follow_layout_check
 
         about_button = Gtk.Button(label="About")
         about_button.connect("clicked", self.on_settings_about_clicked)
@@ -1708,9 +1892,9 @@ class VirtualKeyboard(Gtk.Window):
         report_bugs_button.connect("clicked", self.on_settings_report_bugs_clicked)
         quit_button = Gtk.Button(label="Quit")
         quit_button.connect("clicked", self.on_settings_quit_clicked)
-        grid.attach(about_button, 0, 6, 1, 1)
-        grid.attach(report_bugs_button, 1, 6, 1, 1)
-        grid.attach(quit_button, 2, 6, 1, 1)
+        grid.attach(about_button, 0, 7, 1, 1)
+        grid.attach(report_bugs_button, 1, 7, 1, 1)
+        grid.attach(quit_button, 2, 7, 1, 1)
 
         self.settings_dialog = dialog
         dialog.show_all()
@@ -1723,6 +1907,8 @@ class VirtualKeyboard(Gtk.Window):
         self.settings_gesture_check = None
         self.settings_visual_feedback_check = None
         self.settings_fn_row_check = None
+        self.settings_layout_combo = None
+        self.settings_follow_layout_check = None
 
     def on_settings_prediction_toggled(self, widget):
         self.set_text_prediction_enabled(widget.get_active())
@@ -1742,9 +1928,15 @@ class VirtualKeyboard(Gtk.Window):
         self.set_start_minimized(widget.get_active())
 
     def on_settings_layout_changed(self, widget):
+        if self._syncing_settings_controls:
+            return
         layout_key = widget.get_active_id()
         if layout_key is not None:
             self.set_keyboard_layout(layout_key)
+
+    def on_settings_follow_layout_toggled(self, widget):
+        if not self._syncing_settings_controls:
+            self.set_follow_system_layout(widget.get_active())
 
     def on_settings_about_clicked(self, widget):
         self.on_tray_about(widget)
@@ -3294,6 +3486,18 @@ class VirtualKeyboard(Gtk.Window):
         if getattr(self, "_delayed_emit_source", None) is not None:
             GLib.source_remove(self._delayed_emit_source)
             self._delayed_emit_source = None
+        if getattr(self, "_input_sources_settings", None) is not None:
+            for handler_id in getattr(self, "_input_sources_signal_ids", []):
+                self._input_sources_settings.disconnect(handler_id)
+            self._input_sources_signal_ids = []
+            self._input_sources_settings = None
+        if (
+            getattr(self, "_layout_keymap", None) is not None
+            and getattr(self, "_keymap_layout_handler_id", None) is not None
+        ):
+            self._layout_keymap.disconnect(self._keymap_layout_handler_id)
+            self._keymap_layout_handler_id = None
+            self._layout_keymap = None
         self.stop_all_active_keys()
 
     def _watchdog_tick(self):
@@ -3548,6 +3752,11 @@ class VirtualKeyboard(Gtk.Window):
                         fallback=DEFAULT_KEYBOARD_LAYOUT,
                     )
                 )
+                self.follow_system_layout = self.config.getboolean(
+                    "DEFAULT",
+                    "follow_system_layout",
+                    fallback=True,
+                )
                 self.show_function_row = self.config.getboolean(
                     "DEFAULT",
                     "show_function_row",
@@ -3603,6 +3812,7 @@ class VirtualKeyboard(Gtk.Window):
             "show_function_row": str(self.show_function_row),
             "fn_locked": str(self.fn_locked),
             "keyboard_layout": self.keyboard_layout,
+            "follow_system_layout": str(self.follow_system_layout),
             "width": str(self.width),
             "height": str(self.height),
             "pos_x": str(self.pos_x),
