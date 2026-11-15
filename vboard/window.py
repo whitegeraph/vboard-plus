@@ -2,6 +2,7 @@ import configparser
 import importlib
 import os
 import sys
+import time
 
 from .constants import (
     APP_DISPLAY_NAME,
@@ -13,10 +14,13 @@ from .constants import (
     FUNCTION_ROW_KEYS,
     KEY_WIDTHS,
     LIGHT_BACKGROUND_COLORS,
+    MAX_KEY_HOLD_SECONDS,
     MODIFIER_KEYS,
     NAV_KEYS,
     ONBOARD_BACKGROUND_PRESET,
+    PRTSC_DEBOUNCE_SECONDS,
     SUGGESTION_LIMIT,
+    TAP_ONLY_ACTION_KEYS,
     VERSION,
 )
 from .environment import DESKTOP_ENV
@@ -748,10 +752,16 @@ class VirtualKeyboard(Gtk.Window):
 
         self.connect("delete-event", self.on_delete_event)
         self.connect("map-event", self.on_map_keep_above)
+        self.connect("unmap-event", self.on_window_unmap_event)
+        self.connect("focus-out-event", self.on_window_focus_out_event)
+        self.connect("grab-broken-event", self.on_grab_broken_event)
+        self.connect("destroy", self.on_destroy_event)
         self.connect("window-state-event", self.on_window_state_changed)
         self._keep_above_retries = 0
         self._keep_above_timer_id = None
         self._save_settings_timer_id = None
+        self._last_prtsc_time = 0.0
+        self._watchdog_source = None
         self.width = self.DEFAULT_WINDOW_WIDTH
         self.height = self.DEFAULT_WINDOW_HEIGHT
         self.pos_x = 0
@@ -921,6 +931,7 @@ class VirtualKeyboard(Gtk.Window):
             self.enable_gesture_typing(sync_controls=False, save=False)
 
         self.sync_caps_lock_from_system(connect=True)
+        self._watchdog_source = GLib.timeout_add(250, self._watchdog_tick)
 
     def apply_window_geometry_constraints(self):
         geometry = Gdk.Geometry()
@@ -1588,6 +1599,7 @@ class VirtualKeyboard(Gtk.Window):
         Gio.AppInfo.launch_default_for_uri(BUG_REPORT_URL, None)
 
     def on_delete_event(self, widget, event):
+        self.stop_all_active_keys()
         if self.exiting:
             return False
         if self.tray_icon is None:
@@ -2949,6 +2961,7 @@ class VirtualKeyboard(Gtk.Window):
             button.connect("button-press-event", self.on_key_button_press_event, key_event)
             button.connect("motion-notify-event", self.on_key_button_motion_event, key_event)
             button.connect("button-release-event", self.on_key_button_release_event, key_event)
+            button.connect("grab-broken-event", self.on_grab_broken_event)
             self.key_buttons[key_event] = button
             if key_event in self.modifiers:
                 self.modifier_buttons[key_event] = button
@@ -3083,6 +3096,12 @@ class VirtualKeyboard(Gtk.Window):
         if event.button != 1:
             return False
 
+        if key_event == "PrtSc":
+            now = time.monotonic()
+            if now - getattr(self, "_last_prtsc_time", 0.0) < PRTSC_DEBOUNCE_SECONDS:
+                return True
+            self._last_prtsc_time = now
+
         if key_event == "CapsLock":
             self.toggle_caps_lock()
             self.reset_modifiers()
@@ -3111,7 +3130,6 @@ class VirtualKeyboard(Gtk.Window):
             else:
                 target_key = key_event
             self.emit_key(target_key)
-            self.delay_source = GLib.timeout_add(400, self.start_repeat, target_key)
             return False
 
         if self.gesture_controller is not None and self.gesture_controller.handle_key_press(
@@ -3122,7 +3140,8 @@ class VirtualKeyboard(Gtk.Window):
             return False
 
         self.emit_key(key_event)
-        self.delay_source = GLib.timeout_add(400, self.start_repeat, key_event)
+        if key_event not in TAP_ONLY_ACTION_KEYS:
+            self.delay_source = GLib.timeout_add(400, self.start_repeat, key_event)
         return False
 
     def on_key_button_motion_event(self, widget, event, key_event):
@@ -3145,20 +3164,54 @@ class VirtualKeyboard(Gtk.Window):
         return False
 
     def stop_key_repeat(self):
-        if hasattr(self, "delay_source"):
+        if getattr(self, "delay_source", None) is not None:
             GLib.source_remove(self.delay_source)
-            del self.delay_source
-        if hasattr(self, "repeat_source"):
+            self.delay_source = None
+        if getattr(self, "repeat_source", None) is not None:
             GLib.source_remove(self.repeat_source)
-            del self.repeat_source
+            self.repeat_source = None
 
     def start_repeat(self, key_event):
+        self.delay_source = None
+        if key_event in TAP_ONLY_ACTION_KEYS or not self.get_visible():
+            return False
         self.repeat_source = GLib.timeout_add(100, self.repeat_key, key_event)
         return False
 
     def repeat_key(self, key_event):
+        if key_event in TAP_ONLY_ACTION_KEYS or not self.get_visible():
+            self.repeat_source = None
+            return False
         self.emit_key(key_event)
         return True
+
+    def on_window_unmap_event(self, widget, event):
+        self.stop_all_active_keys()
+        return False
+
+    def on_window_focus_out_event(self, widget, event):
+        self.stop_all_active_keys()
+        return False
+
+    def on_grab_broken_event(self, widget, event):
+        self.stop_all_active_keys()
+        return False
+
+    def on_destroy_event(self, widget):
+        if getattr(self, "_watchdog_source", None) is not None:
+            GLib.source_remove(self._watchdog_source)
+            self._watchdog_source = None
+        self.stop_all_active_keys()
+
+    def _watchdog_tick(self):
+        if hasattr(self, "backend") and self.backend is not None:
+            self.backend.check_stuck_keys(MAX_KEY_HOLD_SECONDS)
+        return True
+
+    def stop_all_active_keys(self):
+        self.stop_key_repeat()
+        if hasattr(self, "backend") and self.backend is not None:
+            self.backend.release_all_keys()
 
     def emit_shifted_key(self, key_event):
         modifiers = dict(self.modifiers)

@@ -1,3 +1,4 @@
+import signal
 import sys
 
 from .constants import APP_DISPLAY_NAME, APP_ID
@@ -28,6 +29,23 @@ class VboardApplication(Gtk.Application):
         Gtk.Application.do_startup(self)
         GLib.set_prgname(APP_ID)
         GLib.set_application_name(APP_DISPLAY_NAME)
+        GLib.unix_signal_add(
+            GLib.PRIORITY_HIGH, signal.SIGTERM, self._on_signal_exit, signal.SIGTERM
+        )
+        GLib.unix_signal_add(
+            GLib.PRIORITY_HIGH, signal.SIGINT, self._on_signal_exit, signal.SIGINT
+        )
+
+    def _on_signal_exit(self, signum):
+        if self.window is not None:
+            self.window.stop_all_active_keys()
+        self.quit()
+        return GLib.SOURCE_REMOVE
+
+    def do_shutdown(self):
+        if self.window is not None:
+            self.window.stop_all_active_keys()
+        Gtk.Application.do_shutdown(self)
 
     def ensure_window(self):
         if self.window is None:

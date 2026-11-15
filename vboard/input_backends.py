@@ -1,4 +1,8 @@
-from .constants import MODIFIER_KEYS
+import atexit
+import sys
+import time
+
+from .constants import MAX_KEY_HOLD_SECONDS, MODIFIER_KEYS, TAP_ONLY_ACTION_KEYS
 
 try:
     import uinput
@@ -12,6 +16,15 @@ class InputBackend:
     def emit_key(self, key_label, modifiers):
         raise NotImplementedError
 
+    def release_all_keys(self):
+        pass
+
+    def check_stuck_keys(self, max_hold_seconds=MAX_KEY_HOLD_SECONDS):
+        pass
+
+    def destroy(self):
+        pass
+
 
 class NullInputBackend(InputBackend):
     name = "disabled"
@@ -22,6 +35,15 @@ class NullInputBackend(InputBackend):
             print(f"Warning: {reason}")
 
     def emit_key(self, key_label, modifiers):
+        return
+
+    def release_all_keys(self):
+        return
+
+    def check_stuck_keys(self, max_hold_seconds=MAX_KEY_HOLD_SECONDS):
+        return
+
+    def destroy(self):
         return
 
 
@@ -131,6 +153,22 @@ class UInputBackend(InputBackend):
         self.modifier_order = [key for key in MODIFIER_KEYS if key in self.key_map]
         device_keys = list(dict.fromkeys(list(self.key_map.values()) + [uinput.KEY_SYSRQ, uinput.KEY_PRINT]))
         self.device = uinput.Device(device_keys)
+        self.pressed_keys = {}
+        atexit.register(self.destroy)
+        self._install_excepthook()
+
+    def _install_excepthook(self):
+        old_hook = sys.excepthook
+
+        def _hook(exc_type, exc_value, exc_traceback):
+            try:
+                self.release_all_keys()
+            except Exception:
+                pass
+            if old_hook:
+                old_hook(exc_type, exc_value, exc_traceback)
+
+        sys.excepthook = _hook
 
     @staticmethod
     def _uinput_key(*names, required=True):
@@ -145,18 +183,69 @@ class UInputBackend(InputBackend):
             )
         return None
 
+    def _press_key(self, key_event, syn=True):
+        self.device.emit(key_event, 1, syn=syn)
+        self.pressed_keys[key_event] = time.monotonic()
+
+    def _release_key(self, key_event, syn=True):
+        try:
+            self.device.emit(key_event, 0, syn=syn)
+        finally:
+            self.pressed_keys.pop(key_event, None)
+
+    def release_all_keys(self):
+        for key_event in list(self.pressed_keys.keys()):
+            try:
+                self.device.emit(key_event, 0, syn=True)
+            except Exception:
+                pass
+            finally:
+                self.pressed_keys.pop(key_event, None)
+
+    def check_stuck_keys(self, max_hold_seconds=MAX_KEY_HOLD_SECONDS):
+        now = time.monotonic()
+        stuck = [
+            k for k, t in list(self.pressed_keys.items())
+            if now - t >= max_hold_seconds
+        ]
+        for key_event in stuck:
+            try:
+                self.device.emit(key_event, 0, syn=True)
+            except Exception:
+                pass
+            finally:
+                self.pressed_keys.pop(key_event, None)
+
     def emit_key(self, key_label, modifiers):
         key_event = self.key_map.get(key_label)
         if key_event is None:
             return
 
-        for mod_key in self.modifier_order:
-            if modifiers.get(mod_key, False):
-                self.device.emit(self.key_map[mod_key], 1)
+        applied_mods = []
+        try:
+            for mod_key in self.modifier_order:
+                if modifiers.get(mod_key, False):
+                    mod_event = self.key_map[mod_key]
+                    self._press_key(mod_event, syn=False)
+                    applied_mods.append(mod_event)
 
-        self.device.emit(key_event, 1)
-        self.device.emit(key_event, 0)
+            self._press_key(key_event, syn=True)
+            if key_label in TAP_ONLY_ACTION_KEYS:
+                time.sleep(0.015)
+            self._release_key(key_event, syn=True)
+        finally:
+            for mod_event in reversed(applied_mods):
+                try:
+                    self._release_key(mod_event, syn=True)
+                except Exception:
+                    pass
 
-        for mod_key in self.modifier_order:
-            if modifiers.get(mod_key, False):
-                self.device.emit(self.key_map[mod_key], 0)
+    def destroy(self):
+        self.release_all_keys()
+        device = getattr(self, "device", None)
+        if device is not None:
+            self.device = None
+            try:
+                device.destroy()
+            except Exception:
+                pass

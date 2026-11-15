@@ -138,5 +138,39 @@ NAV_KEYS = (
     "End",
 )
 
+TAP_ONLY_ACTION_KEYS = (
+    "PrtSc",
+    "Insert",
+    "Home",
+    "End",
+    "Esc",
+    "CapsLock",
+    "Fn",
+    "F1",
+    "F2",
+    "F3",
+    "F4",
+    "F5",
+    "F6",
+    "F7",
+    "F8",
+    "F9",
+    "F10",
+    "F11",
+    "F12",
+    "Mute",
+    "VolumeDown",
+    "VolumeUp",
+    "MicMute",
+    "BrightnessDown",
+    "BrightnessUp",
+    "PreviousSong",
+    "PlayPause",
+    "NextSong",
+)
+
+PRTSC_DEBOUNCE_SECONDS = 0.5
+MAX_KEY_HOLD_SECONDS = 1.0
+
 SUPPORTED_WORD_CHARS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'-")
 SUGGESTION_LIMIT = 5
