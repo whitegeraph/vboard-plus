@@ -25,6 +25,7 @@ from .gtk import (
     Gio,
     GLib,
     Gtk,
+    Pango,
 )
 from .input_backends import NullInputBackend, UInputBackend
 from .layouts import get_default_layout_key, get_layout_choices, load_keyboard_layouts
@@ -524,8 +525,139 @@ class StatusNotifierTrayIcon:
             self.name_acquired = False
 
 
+class ScalableGrid(Gtk.Grid):
+    def do_get_preferred_width(self):
+        return (1, 1)
+
+    def do_get_preferred_height(self):
+        return (1, 1)
+
+    def do_get_preferred_width_for_height(self, height):
+        return (1, 1)
+
+    def do_get_preferred_height_for_width(self, width):
+        return (1, 1)
+
+
+class ScalableHeaderButton(Gtk.Button):
+    def __init__(self, label="", min_w=14, nat_w=40, min_h=22, nat_h=24):
+        super().__init__(label=label)
+        self._min_w = min_w
+        self._nat_w = nat_w
+        self._min_h = min_h
+        self._nat_h = nat_h
+        if len(label) > 1:
+            child = self.get_child()
+            if isinstance(child, Gtk.Label):
+                child.set_ellipsize(Pango.EllipsizeMode.END)
+                child.set_width_chars(1)
+
+    def set_target_size(self, nat_w=None, nat_h=None):
+        if nat_w is not None:
+            self._nat_w = max(self._min_w, int(nat_w))
+        if nat_h is not None:
+            self._nat_h = max(self._min_h, int(nat_h))
+
+    def do_get_preferred_width(self):
+        _min_width, natural_width = Gtk.Button.do_get_preferred_width(self)
+        return (self._min_w, max(self._min_w, self._nat_w, natural_width))
+
+    def do_get_preferred_height(self):
+        return (self._min_h, self._nat_h)
+
+    def do_get_preferred_width_for_height(self, height):
+        return self.do_get_preferred_width()
+
+    def do_get_preferred_height_for_width(self, width):
+        return self.do_get_preferred_height()
+
+
+class ScalableSuggestionButton(Gtk.Button):
+    def __init__(self, target_height=34):
+        super().__init__()
+        self._target_height = target_height
+
+    def set_target_height(self, height):
+        self._target_height = max(12, int(height))
+
+    def do_get_preferred_width(self):
+        _min_width, natural_width = Gtk.Button.do_get_preferred_width(self)
+        return (1, max(1, natural_width))
+
+    def do_get_preferred_height(self):
+        return (12, max(12, self._target_height))
+
+    def do_get_preferred_width_for_height(self, height):
+        return self.do_get_preferred_width()
+
+    def do_get_preferred_height_for_width(self, width):
+        return self.do_get_preferred_height()
+
+
+class ScalableComboBoxText(Gtk.ComboBoxText):
+    def __init__(self):
+        super().__init__()
+        self._nat_h = 24
+
+    def set_target_height(self, nat_h):
+        self._nat_h = max(22, int(nat_h))
+
+    def do_get_preferred_width(self):
+        _min_width, natural_width = Gtk.ComboBoxText.do_get_preferred_width(self)
+        return (18, max(18, natural_width))
+
+    def do_get_preferred_height(self):
+        return (22, self._nat_h)
+
+    def do_get_preferred_width_for_height(self, height):
+        return self.do_get_preferred_width()
+
+    def do_get_preferred_height_for_width(self, width):
+        return self.do_get_preferred_height()
+
+
+class ScalableHeaderBar(Gtk.HeaderBar):
+    def __init__(self, title_label=None, menu_check_cb=None):
+        super().__init__()
+        self.title_label = title_label
+        self.menu_check_cb = menu_check_cb
+        self._nat_h = 28
+
+    def set_target_height(self, nat_h):
+        self._nat_h = max(28, int(nat_h))
+
+    def do_get_preferred_width(self):
+        _min_width, natural_width = Gtk.HeaderBar.do_get_preferred_width(self)
+        return (120, max(120, natural_width))
+
+    def do_get_preferred_height(self):
+        return (28, self._nat_h)
+
+    def do_get_preferred_width_for_height(self, height):
+        return self.do_get_preferred_width()
+
+    def do_get_preferred_height_for_width(self, width):
+        return self.do_get_preferred_height()
+
+    def do_size_allocate(self, allocation):
+        if self.title_label is not None:
+            menu_open = bool(self.menu_check_cb and self.menu_check_cb())
+            min_title_width = 480 if menu_open else 320
+            should_show = allocation.width >= min_title_width
+            if self.title_label.get_visible() != should_show:
+                self.title_label.set_visible(should_show)
+        Gtk.HeaderBar.do_size_allocate(self, allocation)
+
+
 class VirtualKeyboard(Gtk.Window):
+    DEFAULT_WINDOW_WIDTH = 780
+    DEFAULT_WINDOW_HEIGHT = 320
+    MIN_WINDOW_WIDTH = 220
+    MIN_WINDOW_HEIGHT = 110
+    BASE_GRID_WIDTH = 720
     BASE_KEY_HEIGHT = 52
+    BASE_KEY_FONT_SIZE = 19
+    BASE_HEADER_FONT_SIZE = 14
     BASE_SUGGESTION_HEIGHT = 34
     BASE_SUGGESTION_FONT_SIZE = 15
     BASE_SUGGESTION_SPACING = 4
@@ -556,8 +688,8 @@ class VirtualKeyboard(Gtk.Window):
         self.connect("window-state-event", self.on_window_state_changed)
         self._keep_above_retries = 0
         self._keep_above_timer_id = None
-        self.width = 0
-        self.height = 0
+        self.width = self.DEFAULT_WINDOW_WIDTH
+        self.height = self.DEFAULT_WINDOW_HEIGHT
         self.pos_x = 0
         self.pos_y = 0
         self.config_pos_x = 0
@@ -585,20 +717,34 @@ class VirtualKeyboard(Gtk.Window):
 
         self.modifiers = {mod_key: False for mod_key in MODIFIER_KEYS}
         self.color_map = dict(COLOR_CHOICES)
-        if self.width != 0:
+        self.apply_window_geometry_constraints()
+        if self.width > 0 and self.height > 0:
             self.set_default_size(self.width, self.height)
+            self.resize(self.width, self.height)
 
-        self.header = Gtk.HeaderBar()
-        self.header.set_title(APP_DISPLAY_NAME)
+        self.header_title_label = Gtk.Label(label=APP_DISPLAY_NAME)
+        self.header_title_label.get_style_context().add_class("title")
+        self.header_title_label.set_ellipsize(Pango.EllipsizeMode.END)
+        self.header_title_label.set_width_chars(0)
+        self.header = ScalableHeaderBar(
+            title_label=self.header_title_label,
+            menu_check_cb=lambda: (
+                hasattr(self, "color_combobox")
+                and self.color_combobox.get_visible()
+            ),
+        )
+        self.header.set_property("spacing", 2)
+        self.header.set_custom_title(self.header_title_label)
         self.header.set_show_close_button(True)
         self.buttons = []
+        self.header_buttons = []
         self.key_buttons = {}
         self.modifier_buttons = {}
         self.current_word = ""
         self.suggestion_engine = HunspellSuggestionEngine()
         self.suggestion_buttons = []
         self.suggestion_override = None
-        self.color_combobox = Gtk.ComboBoxText()
+        self.color_combobox = ScalableComboBoxText()
         self.tray_icon = None
         self.tray_menu = None
         self.tray_toggle_item = None
@@ -616,7 +762,10 @@ class VirtualKeyboard(Gtk.Window):
         self.caps_lock_active = False
         self._syncing_tray_items = False
         self.layout_character_lookup = {}
+        self.key_font_size = self.BASE_KEY_FONT_SIZE
+        self.header_font_size = self.BASE_HEADER_FONT_SIZE
         self.suggestion_font_size = self.BASE_SUGGESTION_FONT_SIZE
+        self.layout_scale = 1.0
         self.gesture_controller = None
         self.set_titlebar(self.header)
         self.set_name("vboard-main")
@@ -632,6 +781,9 @@ class VirtualKeyboard(Gtk.Window):
             )
 
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        content.set_hexpand(True)
+        content.set_vexpand(True)
+        self.content_box = content
         self.add(content)
 
         self.suggestion_revealer = Gtk.Revealer()
@@ -641,6 +793,7 @@ class VirtualKeyboard(Gtk.Window):
 
         self.suggestion_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         self.suggestion_bar.set_name("suggestion-bar")
+        self.suggestion_bar.set_hexpand(True)
         self.suggestion_bar.set_margin_start(3)
         self.suggestion_bar.set_margin_end(3)
         self.suggestion_bar.set_margin_top(3)
@@ -649,24 +802,27 @@ class VirtualKeyboard(Gtk.Window):
         self.create_suggestion_buttons()
 
         grid_overlay = Gtk.Overlay()
+        grid_overlay.set_hexpand(True)
+        grid_overlay.set_vexpand(True)
         self.grid_overlay = grid_overlay
         content.pack_start(self.suggestion_revealer, False, False, 0)
         self.update_suggestion_bar_visibility()
         content.pack_start(grid_overlay, True, True, 0)
 
-        grid = Gtk.Grid()
+        grid = ScalableGrid()
         grid.set_row_homogeneous(True)
         grid.set_column_homogeneous(True)
+        grid.set_hexpand(True)
+        grid.set_vexpand(True)
+        grid.set_halign(Gtk.Align.FILL)
+        grid.set_valign(Gtk.Align.FILL)
         grid.set_margin_start(3)
         grid.set_margin_end(3)
+        grid.set_margin_bottom(3)
         grid.set_name("grid")
         grid.connect("size-allocate", self.on_grid_size_allocate)
         self.grid = grid
         grid_overlay.add(grid)
-        self.apply_css()
-        if self.text_prediction_enabled:
-            GLib.idle_add(self.preload_suggestions)
-            GLib.idle_add(self.update_suggestion_bar_scale)
 
         self.keyboard_layout = self.normalize_keyboard_layout(self.keyboard_layout)
         self.refresh_layout_character_lookup()
@@ -674,10 +830,22 @@ class VirtualKeyboard(Gtk.Window):
         for row_index, keys in enumerate(self.get_active_key_rows()):
             self.create_row(grid, row_index, keys)
 
+        self.update_suggestion_bar_scale()
+        self.apply_css()
+        if self.text_prediction_enabled:
+            GLib.idle_add(self.preload_suggestions)
+        GLib.idle_add(self.update_suggestion_bar_scale)
+
         if self.gesture_enabled:
             self.enable_gesture_typing(sync_controls=False, save=False)
 
         self.sync_caps_lock_from_system(connect=True)
+
+    def apply_window_geometry_constraints(self):
+        geometry = Gdk.Geometry()
+        geometry.min_width = self.MIN_WINDOW_WIDTH
+        geometry.min_height = self.MIN_WINDOW_HEIGHT
+        self.set_geometry_hints(None, geometry, Gdk.WindowHints.MIN_SIZE)
 
     def get_app_icon_name(self):
         icon_theme = Gtk.IconTheme.get_default()
@@ -1133,10 +1301,17 @@ class VirtualKeyboard(Gtk.Window):
         return True
 
     def create_settings(self):
-        self.esc_button = Gtk.Button(label="ESC")
+        self.esc_button = ScalableHeaderButton(
+            label="ESC",
+            min_w=18,
+            nat_w=54,
+            min_h=14,
+            nat_h=28,
+        )
         self.esc_button.connect("clicked", lambda widget: self.emit_key("Esc"))
         self.esc_button.set_name("esc-button")
         self.header.pack_start(self.esc_button)
+        self.header_buttons.append(self.esc_button)
 
         self.create_button("☰", self.change_visibility, callbacks=1)
         self.create_button(
@@ -1151,6 +1326,10 @@ class VirtualKeyboard(Gtk.Window):
         self.color_combobox.append_text("Change Background")
         self.color_combobox.connect("changed", self.change_color)
         self.color_combobox.set_name("combobox")
+        for renderer in self.color_combobox.get_cells():
+            if isinstance(renderer, Gtk.CellRendererText):
+                renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
+                renderer.set_property("width-chars", 1)
         self.header.pack_end(self.color_combobox)
 
         for label, _color in COLOR_CHOICES:
@@ -1295,12 +1474,20 @@ class VirtualKeyboard(Gtk.Window):
     def on_settings_quit_clicked(self, widget):
         self.on_tray_quit(widget)
 
+    def configure_compact_button_label(self, button):
+        child = button.get_child()
+        if isinstance(child, Gtk.Label):
+            child.set_ellipsize(Pango.EllipsizeMode.END)
+            child.set_width_chars(1)
+
     def create_suggestion_buttons(self):
         for _ in range(SUGGESTION_LIMIT):
-            button = Gtk.Button()
+            button = ScalableSuggestionButton(self.BASE_SUGGESTION_HEIGHT)
             button.set_name("suggestion-button")
             button.set_label(" ")
             button.set_sensitive(False)
+            button.set_hexpand(True)
+            self.configure_compact_button_label(button)
             button.connect("clicked", self.on_suggestion_clicked)
             self.suggestion_bar.pack_start(button, True, True, 0)
             self.suggestion_buttons.append(button)
@@ -1360,41 +1547,132 @@ class VirtualKeyboard(Gtk.Window):
         self.update_suggestion_bar_scale()
 
     def update_suggestion_bar_scale(self):
-        if not self.text_prediction_enabled:
-            return False
-
+        grid_width = self.grid.get_allocated_width() if hasattr(self, "grid") else 0
         grid_height = self.grid.get_allocated_height() if hasattr(self, "grid") else 0
-        if grid_height <= 0:
-            return False
+        content_height = (
+            self.content_box.get_allocated_height()
+            if hasattr(self, "content_box")
+            else 0
+        )
+        win_width, win_height = self.get_size()
+        if grid_width <= 1:
+            grid_width = max(
+                1,
+                (win_width or self.width or self.DEFAULT_WINDOW_WIDTH) - 6,
+            )
+        if content_height <= 1:
+            est_win_h = win_height or self.height or self.DEFAULT_WINDOW_HEIGHT
+            content_height = max(1, est_win_h - 38)
 
-        row_height = grid_height / max(1, len(self.get_active_key_rows()))
-        scale = row_height / self.BASE_KEY_HEIGHT
-        suggestion_height = max(24, int(round(self.BASE_SUGGESTION_HEIGHT * scale)))
-        suggestion_font_size = max(10, int(round(self.BASE_SUGGESTION_FONT_SIZE * scale)))
-        spacing = max(1, int(round(self.BASE_SUGGESTION_SPACING * scale)))
-        margin = max(1, int(round(self.BASE_SUGGESTION_MARGIN * scale)))
-        margin_bottom = max(0, int(round(self.BASE_SUGGESTION_MARGIN_BOTTOM * scale)))
+        num_rows = max(1, len(self.get_active_key_rows()))
+        base_grid_height = num_rows * self.BASE_KEY_HEIGHT
+        if self.text_prediction_enabled:
+            base_total_height = (
+                base_grid_height
+                + self.BASE_SUGGESTION_HEIGHT
+                + self.BASE_SUGGESTION_MARGIN
+                + self.BASE_SUGGESTION_MARGIN_BOTTOM
+            )
+            height_scale = content_height / max(1, base_total_height)
+        else:
+            effective_grid_h = grid_height if grid_height > 1 else content_height
+            height_scale = effective_grid_h / max(1, base_grid_height)
+
+        width_scale = grid_width / max(1, self.BASE_GRID_WIDTH)
+        font_scale = min(width_scale, height_scale)
+
+        key_font_size = max(
+            6,
+            min(42, int(round(self.BASE_KEY_FONT_SIZE * font_scale))),
+        )
+        header_font_size = max(
+            8,
+            min(
+                18,
+                int(round(self.BASE_HEADER_FONT_SIZE * min(1.15, font_scale))),
+            ),
+        )
+        suggestion_height = max(
+            14,
+            int(round(self.BASE_SUGGESTION_HEIGHT * height_scale)),
+        )
+        suggestion_font_size = max(
+            7,
+            min(32, int(round(self.BASE_SUGGESTION_FONT_SIZE * font_scale))),
+        )
+        spacing = max(
+            1,
+            int(round(self.BASE_SUGGESTION_SPACING * font_scale)),
+        )
+        margin = max(
+            1,
+            int(round(self.BASE_SUGGESTION_MARGIN * font_scale)),
+        )
+        margin_bottom = max(
+            0,
+            int(round(self.BASE_SUGGESTION_MARGIN_BOTTOM * height_scale)),
+        )
+        quantized_scale = round(font_scale, 2)
+        menu_open = (
+            hasattr(self, "color_combobox")
+            and self.color_combobox.get_visible()
+        )
+        min_title_w = 480 if menu_open else 320
+        show_title = (win_width or grid_width) >= min_title_w
+
         scale_values = (
+            key_font_size,
+            header_font_size,
             suggestion_height,
             suggestion_font_size,
             spacing,
             margin,
             margin_bottom,
+            quantized_scale,
+            show_title,
+            self.text_prediction_enabled,
         )
 
         if scale_values == self._last_suggestion_scale:
             return False
 
         self._last_suggestion_scale = scale_values
+        self.key_font_size = key_font_size
+        self.header_font_size = header_font_size
         self.suggestion_font_size = suggestion_font_size
-        self.suggestion_bar.set_spacing(spacing)
-        self.suggestion_bar.set_margin_start(margin)
-        self.suggestion_bar.set_margin_end(margin)
-        self.suggestion_bar.set_margin_top(margin)
-        self.suggestion_bar.set_margin_bottom(margin_bottom)
+        self.layout_scale = quantized_scale
+
+        if hasattr(self, "header_title_label") and self.header_title_label is not None:
+            self.header_title_label.set_visible(show_title)
+
+        for h_btn in getattr(self, "header_buttons", []):
+            if isinstance(h_btn, ScalableHeaderButton):
+                base_w = 54 if h_btn.get_name() == "esc-button" else (
+                    52 if h_btn.get_label() == "Options" else 36
+                )
+                h_btn.set_target_size(
+                    nat_w=max(14, int(round(base_w * min(1.0, width_scale)))),
+                )
+                h_btn.queue_resize()
+
+        if hasattr(self, "grid") and self.grid is not None:
+            self.grid.set_margin_start(margin)
+            self.grid.set_margin_end(margin)
+            self.grid.set_margin_bottom(margin)
+
+        if hasattr(self, "suggestion_bar") and self.suggestion_bar is not None:
+            self.suggestion_bar.set_spacing(spacing)
+            self.suggestion_bar.set_margin_start(margin)
+            self.suggestion_bar.set_margin_end(margin)
+            self.suggestion_bar.set_margin_top(margin)
+            self.suggestion_bar.set_margin_bottom(margin_bottom)
 
         for button in self.suggestion_buttons:
-            button.set_size_request(-1, suggestion_height)
+            if isinstance(button, ScalableSuggestionButton):
+                button.set_target_height(suggestion_height)
+                button.queue_resize()
+            else:
+                button.set_size_request(1, suggestion_height)
 
         self.apply_css()
         return False
@@ -1430,7 +1708,14 @@ class VirtualKeyboard(Gtk.Window):
         callbacks=0,
         hide_with_menu=True,
     ):
-        button = Gtk.Button(label=label_)
+        nat_w = 52 if label_ == "Options" else (44 if len(label_) > 1 else 36)
+        button = ScalableHeaderButton(
+            label=label_,
+            min_w=14,
+            nat_w=nat_w,
+            min_h=14,
+            nat_h=28,
+        )
         button.set_name("headbar-button")
         if callbacks == 1:
             button.connect("clicked", callback)
@@ -1443,6 +1728,7 @@ class VirtualKeyboard(Gtk.Window):
 
         button.get_style_context().add_class("header-button")
         self.header.pack_end(button)
+        self.header_buttons.append(button)
         if hide_with_menu:
             self.buttons.append(button)
         return button
@@ -1452,6 +1738,8 @@ class VirtualKeyboard(Gtk.Window):
             if button.get_label() != "☰":
                 button.set_visible(not button.get_visible())
         self.color_combobox.set_visible(not self.color_combobox.get_visible())
+        self._last_suggestion_scale = None
+        self.update_suggestion_bar_scale()
 
     def change_color(self, widget):
         selected_label = self.color_combobox.get_active_text()
@@ -1555,6 +1843,29 @@ class VirtualKeyboard(Gtk.Window):
                 int(accent_rgb[2] * 255),
             )
 
+        scale = getattr(self, "layout_scale", 1.0)
+        window_radius = max(6, min(16, int(round(16 * scale))))
+        header_pad_v = 0 if scale < 0.65 else max(1, min(3, int(round(3 * scale))))
+        header_pad_h = max(1, min(6, int(round(6 * scale))))
+        header_btn_min_w = 0
+        header_btn_min_h = 0
+        header_btn_pad_v = 0 if scale < 0.7 else 1
+        header_btn_pad_h = max(1, int(round(4 * min(1.0, scale))))
+        header_btn_margin = 0 if scale < 0.65 else 1
+        titlebtn_min_w = 0
+        titlebtn_min_h = 0
+        esc_min_w = 0
+        btn_radius = max(3, min(8, int(round(8 * scale))))
+        btn_radius_enhanced = max(3, min(6, int(round(6 * scale))))
+        key_radius = max(3, min(8, int(round(8 * scale))))
+        key_radius_enhanced = max(3, min(7, int(round(7 * scale))))
+        key_padding = 0
+        key_margin = 0 if scale < 0.45 else 1
+        key_margin_enhanced = key_margin
+        combo_padding = 0 if scale < 0.65 else max(1, min(4, int(round(4 * min(1.0, scale)))))
+        sugg_pad_v = 0 if scale < 0.65 else (1 if scale < 0.85 else 2)
+        sugg_pad_h = max(2, min(8, int(round(8 * min(1.0, scale)))))
+
         if self.style_variant == "onboard":
             css = f"""
             #vboard-main {{
@@ -1565,7 +1876,7 @@ class VirtualKeyboard(Gtk.Window):
                     {rgba((18, 24, 33), 1.0)}
                 );
                 border: 1px solid {rgba((7, 11, 18), 0.95)};
-                border-radius: 16px;
+                border-radius: {window_radius}px;
                 color: {rgba((239, 243, 250), 1.0)};
             }}
 
@@ -1579,16 +1890,17 @@ class VirtualKeyboard(Gtk.Window):
                 border: 0px;
                 border-bottom: 1px solid {rgba((8, 12, 19), 0.9)};
                 box-shadow: none;
-                padding: 4px 6px;
+                min-height: 0px;
+                padding: {header_pad_v}px {header_pad_h}px;
             }}
 
             #vboard-main headerbar button {{
-                min-width: 40px;
-                min-height: 34px;
-                padding: 0px;
+                min-width: {header_btn_min_w}px;
+                min-height: {header_btn_min_h}px;
+                padding: {header_btn_pad_v}px {header_btn_pad_h}px;
                 border: 1px solid {rgba((13, 21, 33), 1.0)};
-                border-radius: 8px;
-                margin: 0px 2px;
+                border-radius: {btn_radius}px;
+                margin: 0px {header_btn_margin}px;
                 color: {rgba((239, 243, 250), 1.0)};
                 background-color: {rgba((38, 49, 66), 1.0)};
                 background-image: linear-gradient(
@@ -1601,8 +1913,8 @@ class VirtualKeyboard(Gtk.Window):
             }}
 
             #vboard-main headerbar .titlebutton {{
-                min-width: 50px;
-                min-height: 40px;
+                min-width: {titlebtn_min_w}px;
+                min-height: {titlebtn_min_h}px;
             }}
 
             #vboard-main headerbar button:hover,
@@ -1625,10 +1937,12 @@ class VirtualKeyboard(Gtk.Window):
 
             #vboard-main headerbar button label {{
                 color: {rgba((239, 243, 250), 1.0)};
+                font-size: {self.header_font_size}px;
             }}
 
             #vboard-main headerbar .title {{
                 color: {rgba((239, 243, 250), 0.72)};
+                font-size: {self.header_font_size}px;
                 font-weight: 600;
             }}
 
@@ -1639,23 +1953,23 @@ class VirtualKeyboard(Gtk.Window):
 
             #vboard-main #grid button label {{
                 color: {rgba((244, 247, 251), 1.0)};
-                font-size: 19px;
+                font-size: {self.key_font_size}px;
                 font-weight: 500;
             }}
 
             #vboard-main #grid button {{
-                min-width: 10px;
-                min-height: 52px;
+                min-width: 0px;
+                min-height: 0px;
                 border: 1px solid {rgba((12, 20, 32), 1.0)};
-                border-radius: 8px;
+                border-radius: {key_radius}px;
                 background-color: {rgba((48, 58, 76), 1.0)};
                 background-image: linear-gradient(
                     to bottom,
                     {rgba((75, 86, 109), 1.0)},
                     {rgba((42, 51, 69), 1.0)}
                 );
-                padding: 1px;
-                margin: 1px;
+                padding: {key_padding}px;
+                margin: {key_margin}px;
                 box-shadow:
                     inset 0 1px {rgba((255, 255, 255), 0.09)},
                     inset 0 -1px {rgba((0, 0, 0), 0.18)},
@@ -1712,10 +2026,11 @@ class VirtualKeyboard(Gtk.Window):
             }}
 
             #vboard-main #esc-button {{
-                min-width: 60px;
-                min-height: 34px;
+                min-width: {esc_min_w}px;
+                min-height: {header_btn_min_h}px;
+                padding: {header_btn_pad_v}px {header_btn_pad_h}px;
                 border: 1px solid {rgba((17, 24, 36), 1.0)};
-                border-radius: 8px;
+                border-radius: {btn_radius}px;
                 color: {rgba((247, 248, 251), 1.0)};
                 background-color: {rgba((51, 64, 89), 1.0)};
                 background-image: linear-gradient(
@@ -1741,10 +2056,12 @@ class VirtualKeyboard(Gtk.Window):
             }}
 
             #vboard-main #combobox button.combo {{
+                min-width: 0px;
+                min-height: {header_btn_min_h}px;
                 color: {rgba((239, 243, 250), 1.0)};
-                padding: 5px;
+                padding: {combo_padding}px;
                 border: 1px solid {rgba((13, 21, 33), 1.0)};
-                border-radius: 8px;
+                border-radius: {btn_radius}px;
                 background-image: linear-gradient(
                     to bottom,
                     {rgba((69, 80, 101), 1.0)},
@@ -1758,15 +2075,16 @@ class VirtualKeyboard(Gtk.Window):
 
             #vboard-main #suggestion-button {{
                 border: 1px solid {rgba((17, 25, 37), 1.0)};
-                border-radius: 8px;
+                border-radius: {btn_radius}px;
                 background-color: {rgba((32, 41, 56), 1.0)};
                 background-image: linear-gradient(
                     to bottom,
                     {rgba((51, 64, 85), 1.0)},
                     {rgba((32, 41, 56), 1.0)}
                 );
+                min-width: 0px;
                 min-height: 0px;
-                padding: 2px 8px;
+                padding: {sugg_pad_v}px {sugg_pad_h}px;
                 box-shadow: inset 0 1px {rgba((255, 255, 255), 0.06)};
             }}
 
@@ -1809,16 +2127,17 @@ class VirtualKeyboard(Gtk.Window):
                 background-color: {rgba(header_rgb, 1.0)};
                 border: 0px;
                 box-shadow: none;
-                padding: 4px 6px;
+                min-height: 0px;
+                padding: {header_pad_v}px {header_pad_h}px;
             }}
 
             #vboard-main headerbar button {{
-                min-width: 40px;
-                min-height: 34px;
-                padding: 0px;
+                min-width: {header_btn_min_w}px;
+                min-height: {header_btn_min_h}px;
+                padding: {header_btn_pad_v}px {header_btn_pad_h}px;
                 border: 1px solid transparent;
-                border-radius: 6px;
-                margin: 0px 2px;
+                border-radius: {btn_radius_enhanced}px;
+                margin: 0px {header_btn_margin}px;
                 color: rgb({rgb_css(text_rgb)});
                 background-color: transparent;
                 background-image: none;
@@ -1826,8 +2145,8 @@ class VirtualKeyboard(Gtk.Window):
             }}
 
             #vboard-main headerbar .titlebutton {{
-                min-width: 50px;
-                min-height: 40px;
+                min-width: {titlebtn_min_w}px;
+                min-height: {titlebtn_min_h}px;
             }}
 
             #vboard-main headerbar button:hover,
@@ -1847,6 +2166,7 @@ class VirtualKeyboard(Gtk.Window):
             #vboard-main headerbar button label,
             #vboard-main headerbar .title {{
                 color: rgb({rgb_css(text_rgb)});
+                font-size: {self.header_font_size}px;
             }}
 
             #vboard-main #headbar-button,
@@ -1856,19 +2176,19 @@ class VirtualKeyboard(Gtk.Window):
 
             #vboard-main #grid button label {{
                 color: rgb({rgb_css(text_rgb)});
-                font-size: 19px;
+                font-size: {self.key_font_size}px;
                 font-weight: 500;
             }}
 
             #vboard-main #grid button {{
-                min-width: 10px;
-                min-height: 52px;
+                min-width: 0px;
+                min-height: 0px;
                 border: 1px solid transparent;
-                border-radius: 7px;
+                border-radius: {key_radius_enhanced}px;
                 background-color: {rgba(key_rgb, 1.0)};
                 background-image: none;
-                padding: 1px;
-                margin: 2px;
+                padding: {key_padding}px;
+                margin: {key_margin_enhanced}px;
                 {gnome_specific};
             }}
 
@@ -1907,10 +2227,11 @@ class VirtualKeyboard(Gtk.Window):
             }}
 
             #vboard-main #esc-button {{
-                min-width: 60px;
-                min-height: 34px;
+                min-width: {esc_min_w}px;
+                min-height: {header_btn_min_h}px;
+                padding: {header_btn_pad_v}px {header_btn_pad_h}px;
                 border: 1px solid transparent;
-                border-radius: 6px;
+                border-radius: {btn_radius_enhanced}px;
                 color: rgb({rgb_css(text_rgb)});
                 background-color: {rgba(key_rgb, 1.0)};
                 background-image: none;
@@ -1927,10 +2248,12 @@ class VirtualKeyboard(Gtk.Window):
             }}
 
             #vboard-main #combobox button.combo {{
+                min-width: 0px;
+                min-height: {header_btn_min_h}px;
                 color: rgb({rgb_css(text_rgb)});
-                padding: 5px;
+                padding: {combo_padding}px;
                 border: 1px solid transparent;
-                border-radius: 6px;
+                border-radius: {btn_radius_enhanced}px;
                 background-color: transparent;
                 background-image: none;
             }}
@@ -1941,11 +2264,12 @@ class VirtualKeyboard(Gtk.Window):
 
             #vboard-main #suggestion-button {{
                 border: 1px solid transparent;
-                border-radius: 6px;
+                border-radius: {btn_radius_enhanced}px;
                 background-color: {rgba(suggestion_rgb, 1.0)};
                 background-image: none;
+                min-width: 0px;
                 min-height: 0px;
-                padding: 2px 8px;
+                padding: {sugg_pad_v}px {sugg_pad_h}px;
             }}
 
             #vboard-main #suggestion-button label,
@@ -1973,23 +2297,28 @@ class VirtualKeyboard(Gtk.Window):
                 background-color: rgba({self.bg_color}, {self.opacity});
                 border: 0px;
                 box-shadow: none;
+                min-height: 0px;
+                padding: {header_pad_v}px {header_pad_h}px;
             }}
 
             #vboard-main headerbar button {{
-                min-width: 40px;
-                padding: 0px;
+                min-width: {header_btn_min_w}px;
+                min-height: {header_btn_min_h}px;
+                padding: {header_btn_pad_v}px {header_btn_pad_h}px;
                 border: 0px;
                 margin: 0px;
                 {gnome_specific}
             }}
 
             #vboard-main headerbar .titlebutton {{
-                min-width: 50px;
-                min-height: 40px;
+                min-width: {titlebtn_min_w}px;
+                min-height: {titlebtn_min_h}px;
             }}
 
-            #vboard-main headerbar button label {{
+            #vboard-main headerbar button label,
+            #vboard-main headerbar .title {{
                 color: {self.text_color};
+                font-size: {self.header_font_size}px;
             }}
 
             #vboard-main #headbar-button,
@@ -1999,14 +2328,16 @@ class VirtualKeyboard(Gtk.Window):
 
             #vboard-main #grid button label {{
                 color: {self.text_color};
+                font-size: {self.key_font_size}px;
             }}
 
             #vboard-main #grid button {{
-                min-width: 10px;
+                min-width: 0px;
+                min-height: 0px;
                 border: 1px solid {self.text_color};
                 background-image: none;
-                padding: 1px;
-                margin: 1px;
+                padding: {key_padding}px;
+                margin: {key_margin}px;
             }}
 
             #vboard-main button {{
@@ -2041,7 +2372,9 @@ class VirtualKeyboard(Gtk.Window):
             }}
 
             #vboard-main #esc-button {{
-                min-width: 60px;
+                min-width: {esc_min_w}px;
+                min-height: {header_btn_min_h}px;
+                padding: {header_btn_pad_v}px {header_btn_pad_h}px;
                 border: 1px solid {self.text_color};
                 background-image: none;
             }}
@@ -2056,8 +2389,10 @@ class VirtualKeyboard(Gtk.Window):
             }}
 
             #vboard-main #combobox button.combo {{
+                min-width: 0px;
+                min-height: {header_btn_min_h}px;
                 color: {self.text_color};
-                padding: 5px;
+                padding: {combo_padding}px;
             }}
 
             #vboard-main #suggestion-bar {{
@@ -2067,8 +2402,9 @@ class VirtualKeyboard(Gtk.Window):
             #vboard-main #suggestion-button {{
                 border: 1px solid transparent;
                 background-image: none;
+                min-width: 0px;
                 min-height: 0px;
-                padding: 2px 8px;
+                padding: {sugg_pad_v}px {sugg_pad_h}px;
             }}
 
             #vboard-main #suggestion-button label,
@@ -2106,6 +2442,8 @@ class VirtualKeyboard(Gtk.Window):
 
         for key_event in keys:
             button = Gtk.Button(label=self.get_button_label(key_event))
+            button.set_hexpand(True)
+            button.set_vexpand(True)
             button.add_events(
                 Gdk.EventMask.BUTTON_PRESS_MASK
                 | Gdk.EventMask.BUTTON_RELEASE_MASK
