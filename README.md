@@ -12,68 +12,55 @@ It supports many themes, as you can see below:
 <img src="screenshots/stitched.gif" width="600">
 
 ## Overview
-vboard is a lightweight, customizable virtual keyboard designed for Linux desktop systems. It runs as a Wayland-compatible on-screen keyboard on KDE Plasma, and also works on GNOME by falling back to Xwayland. It provides a full on-screen keyboard with modifier keys such as Ctrl, Alt, and Super (Meta/Win), which makes it especially useful for:
-
-- Touchscreen devices without physical keyboards
-- Systems with malfunctioning physical keyboards
-- Accessibility needs
-- Kiosk applications
-
-The keyboard supports customizable colors, opacity settings, and can be easily modified to support different layouts.
+vboard is a lightweight, customizable virtual keyboard designed for Linux desktop systems. It runs as a Wayland-compatible on-screen keyboard on KDE Plasma, and also works on GNOME by falling back to Xwayland. This fork (`whitegeraph/vboard`) extends upstream `archisman-panigrahi/vboard` with a fully scalable resizable window, a toggleable `F1`–`F12` + `Del` + `Fn` function row with outlined media icons, an Arabic layout with Shift marks/ligatures, and automatic system keyboard layout synchronization.
 
 ## Features
-- **Customizable appearance**: Change background color and opacity
-- **Persistent settings**: Configuration is saved between sessions
-- **Modifier key support**: Provide Ctrl, Alt, Tab and Super (Meta/Win) keys
+- **Customizable appearance**: Change background color, theme style (`classic`, `onboard`, `enhanced`), and opacity
+- **Responsive resizable window**: Dynamically scales keys, fonts, headerbar controls, suggestion bar, and gesture-typing hitboxes across window sizes (down to compact mini sizes), persisting validated dimensions
+- **Top Function Row (`F1`–`F12`, `Del`, `Fn`)**: Toggleable from the headerbar (`Fn` button), Settings dialog, or tray menu, with persistent `Fn` lock (`LOCK` / `MEDIA` modes), outlined symbolic icons for `Mute`, `Vol-`, `Vol+`, `Prev`, `Play`, `Next`, `Bri-`, `Bri+`, `MicMute`, and `PrtSc`, text labels for `Home` and `End`, tap-only safety on screenshot/media keys, and a `uinput` stuck-key watchdog
+- **Multiple layouts & Arabic support**: Includes English (US), German, French (AZERTY), Russian, Swedish, and Arabic layouts (with Shift-accessible Arabic diacritics and ligatures)
+- **Automatic system layout sync**: **Follow System Layout** (enabled by default; toggleable in Settings and the tray menu) automatically switches Vboard when your GNOME input source (`org.gnome.desktop.input-sources`) or `Gdk.Keymap` changes
+- **Persistent settings**: Configuration is saved between sessions in `~/.config/vboard/settings.conf`
+- **Modifier key support**: Provides `Shift`, `Ctrl`, `Alt`, `Tab`, `Super` (Meta/Win), and `Fn` keys
 - **Desktop compatibility**: Native Wayland-friendly behavior on KDE Plasma, with GNOME support via Xwayland fallback
-- **Hold for repetitive clicks**: Keep holding the mouse button to trigger repeated clicks
+- **Hold for repetitive clicks**: Keep holding the mouse button to trigger repeated clicks on repeatable keys
 - **Word suggestions**: Offers completions from an installed Hunspell dictionary while you type with vboard
 - **Gesture typing**: Swipe across letter keys and vboard will decode the path into a word
-- **Compact interface**: Headerbar with minimal controls to save screen space
-- **Tray icon support**: Keeps vboard running in the background and you can quickly reopen it when needed
+- **Compact interface**: Headerbar with minimal controls (`☰`, `Fn`, `Esc`, `Options`, opacity, and color dropdown) to save screen space
+- **Tray icon support**: Keeps vboard running in the background and quickly reopens or configures it via StatusNotifier/AppIndicator
 - **uinput input backend**: Injects keys through Linux `uinput`
 
 Implementation notes for gesture typing are documented in [GESTURE_TYPING.md](./GESTURE_TYPING.md).
 
 ## Installation
 
-### Ubuntu/Debian: `.deb` package
+### Ubuntu/Debian: install from this fork
 
-Download the latest `.deb` from the [GitHub Releases](https://github.com/archisman-panigrahi/vboard/releases) page for a lightweight on-screen keyboard with modifier keys such as Ctrl, Alt, Shift, and Super, then install it with:
-
+1. Install dependencies (if not already installed):
 ```bash
-sudo apt install ./vboard_*.deb
+sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-3.0 python3-uinput gir1.2-ayatanaappindicator3-0.1 meson ninja-build --no-install-recommends
 ```
-**DO NOT** use `dpkg`. Please use `apt`. Otherwise, it will not work.
-
-The package post-install step sets up `uinput` and installs the `udev` rule needed for desktop-session access to `/dev/uinput`.
-
-**Log out and back in, or reboot, after installation.**
-
-### PPA for Ubuntu
-
-You can also use the following [PPA](https://code.launchpad.net/~apandada1/+archive/ubuntu/vboard) in Ubuntu.
-Run the following commands one by one:
-
+Optional for word suggestions:
 ```bash
-sudo add-apt-repository ppa:apandada1/vboard
-sudo apt update
-sudo apt install vboard
+sudo apt install hunspell-en-us
 ```
 
-**Restart for changes to take effect**.
-
-### Ubuntu/Debian: install from source
-
-For the latest unreleased changes on Ubuntu and Debian-based systems, use the automated setup script:
-
+2. Clone this fork and prepare `uinput`:
 ```bash
-git clone https://github.com/archisman-panigrahi/vboard.git
+git clone https://github.com/whitegeraph/vboard.git
 cd vboard
-sudo bash setup-ubuntu-debian.sh
+sudo bash scripts/setup-uinput.sh
 ```
 
-This script will handle all setup steps including dependency installation, uinput configuration, and system-wide installation. **A system restart is recommended after installation**.
+3. Build and install with Meson (remove any prior distro/upstream `vboard` package first with `sudo apt remove vboard` so `/usr/local/bin/vboard` takes precedence):
+```bash
+meson setup builddir --prefix=/usr/local
+meson compile -C builddir
+sudo meson install -C builddir
+```
+
+### Upstream Releases & PPA
+Upstream `.deb` releases and the Ubuntu PPA are maintained at [`archisman-panigrahi/vboard`](https://github.com/archisman-panigrahi/vboard) (`ppa:apandada1/vboard`).
 
 ### Manual installation on other distros
 
@@ -116,7 +103,7 @@ sudo pacman -S hunspell-en_us
 ### 2. Clone the repository
 
 ```bash
-git clone https://github.com/archisman-panigrahi/vboard.git
+git clone https://github.com/whitegeraph/vboard.git
 cd vboard
 ```
 
@@ -167,41 +154,42 @@ sudo meson compile -C builddir uninstall-local
 After installation, open **System Settings**, search for **Virtual Keyboard**, and select **Vboard**.
 
 ## Usage
-When launched, vboard presents a compact keyboard with a minimal interface. The keyboard includes:
-- Standard QWERTY layout keys
-- Arrow keys
-- Modifier keys (Shift, Ctrl, Alt, Super)
+When launched (with `vboard` or `python3 -m vboard.app`), vboard presents a resizable virtual keyboard with a compact interface. The keyboard includes:
+- Toggleable top function row (`F1`–`F12`, `Del`, `Fn`) with persistent `Fn` lock (`LOCK` for standard `F1`–`F12`, `MEDIA` for `Mute`, `Vol-`, `Vol+`, `Prev`, `Play/Pause`, `Next`, `Bri-`, `Bri+`, `MicMute`, `PrtSc`, `Home`, and `End`)
+- Standard alphanumeric, punctuation, and arrow keys across 6 built-in layouts (`en`, `de`, `fr`, `ru`, `sv`, `ar`)
+- Modifier keys (`Shift`, `Ctrl`, `Alt`, `Super`, `Fn`)
 - Header-bar suggestions that appear while typing words through vboard when a system Hunspell dictionary is available
 - Experimental swipe typing on alphabetic keys: drag across the intended letters and release to insert the best matching dictionary word
 
 ### Interface Controls
-- ☰ (menu) - Toggle visibility of other interface controls
-- **Options** - Open in-app options for typing, startup, layout, about, bug reports, and quit actions
-- `+ -` Increase opacity
-- `- -` Decrease opacity
-- **Background dropdown** - Change the keyboard background color or pick an enhanced color theme
-- **Right-click a key** - Send Shift + that key once
+- `☰` (menu) - Toggle visibility of extra headerbar controls
+- `Fn` - Show or hide the top function row (`F1`–`F12`, `Del`, `Fn`)
+- **Options** - Open in-app options for typing, Function Row visibility, Keyboard Layout selection, **Follow System Layout**, about, bug reports, and quit actions
+- `+` / `-` - Increase or decrease opacity
+- **Background dropdown** - Change the keyboard background color or pick an Onboard / Enhanced color theme
+- **Right-click a key** - Send `Shift` + that key once
 - **Tray icon click** - Hide or show vboard
-- **Tray icon right-click** - Open tray controls when the tray backend supports a separate context menu
+- **Tray icon right-click** - Open tray controls (including **Keyboard Layout → Follow System Layout** and manual layout overrides) when the tray backend supports a separate context menu
 
 ## Configuration
 vboard saves its settings to `~/.config/vboard/settings.conf`. This configuration file stores:
-- Background color
-- Theme style
-- Text prediction enabled/disabled state
-- Gesture typing enabled/disabled state
-- Start minimized enabled/disabled state
-- Keyboard layout
-- Opacity level
-- Text color
+- Background color (`bg_color`)
+- Theme style (`style_variant`)
+- Text prediction enabled/disabled (`text_prediction_enabled`)
+- Gesture typing and visual feedback (`gesture_enabled`, `gesture_visual_feedback_enabled`)
+- Start minimized (`start_minimized`)
+- Function row visibility and lock state (`show_function_row`, `fn_locked`)
+- Keyboard layout (`keyboard_layout`) and automatic system sync (`follow_system_layout`, defaults to `True`)
+- Window dimensions and position (`width`, `height`, `pos_x`, `pos_y`)
+- Opacity level (`opacity`) and text color (`text_color`)
 
 You can manually edit this file or use the built-in interface controls to customize vboard.
 
 ## Customizing Keyboard Layout
-Keyboard layouts are JSON files. Packaged layouts are installed to:
+Keyboard layouts are JSON files (`en.json`, `de.json`, `fr.json`, `ru.json`, `sv.json`, `ar.json`). Packaged layouts are installed to:
 
 ```bash
-/usr/share/vboard/vboard/layouts/
+/usr/local/share/vboard/vboard/layouts/   # or /usr/share/vboard/vboard/layouts/
 ```
 
 User layouts can be added or overridden in:
@@ -210,7 +198,9 @@ User layouts can be added or overridden in:
 ~/.config/vboard/layouts/
 ```
 
-Each layout file defines an `id`, display `label`, `rows`, optional key `labels`, and optional `shifted` output. To customize a packaged layout, copy its JSON file into `~/.config/vboard/layouts/`, edit it, and restart vboard.
+Each layout file defines an `id`, display `label`, optional sort `order`, `rows`, optional key `labels`, and optional `shifted` output. With **Follow System Layout** enabled, GNOME input sources (`org.gnome.desktop.input-sources`) such as `us`, `eg`/`ara`, `se`, `de`, `fr`, and `ru` automatically switch vboard to the matching layout (with a `Gdk.Keymap` fallback on non-GNOME sessions).
+
+To customize a packaged layout, copy its JSON file into `~/.config/vboard/layouts/`, edit it, and restart vboard.
 
 ## Troubleshooting
 
@@ -275,9 +265,10 @@ sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput
 Contributions are welcome.
 
 ## Credits
-Originally created by mdev588. The original project was archived, and it is now maintained by Archisman Panigrahi.
+Originally created by mdev588, maintained upstream by Archisman Panigrahi (`archisman-panigrahi/vboard`), and extended in this fork (`whitegeraph/vboard`).
 
-Original project: https://github.com/mdev588/vboard
+- Original project: https://github.com/mdev588/vboard
+- Upstream repository: https://github.com/archisman-panigrahi/vboard
 
 Special thanks to honjow for the icon and patches.
 
@@ -291,6 +282,3 @@ This project is licensed under GPLv3.
 
 ## License
 vboard is licensed under the GNU General Public License v3. See `LICENSE` for details.
-
-## Note
-Currently only the QWERTY US layout is supported.
