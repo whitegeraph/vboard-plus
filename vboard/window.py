@@ -6,6 +6,7 @@ import time
 
 from .constants import (
     APP_DISPLAY_NAME,
+    APP_ID,
     COMMAND_MODIFIER_KEYS,
     COLOR_CHOICES,
     DEFAULT_KEYBOARD_LAYOUT,
@@ -48,7 +49,7 @@ from .layouts import (
 from .suggestions import HunspellSuggestionEngine
 
 
-BUG_REPORT_URL = "https://github.com/archisman-panigrahi/vboard/issues/"
+BUG_REPORT_URL = "https://github.com/whitegeraph/vboard-plus/issues/"
 
 STATUS_NOTIFIER_ITEM_XML = """
 <node>
@@ -264,7 +265,7 @@ class StatusNotifierTrayIcon:
     ):
         property_values = {
             "Category": GLib.Variant("s", "ApplicationStatus"),
-            "Id": GLib.Variant("s", "vboard"),
+            "Id": GLib.Variant("s", "vboard-plus"),
             "Title": GLib.Variant("s", APP_DISPLAY_NAME),
             "Status": GLib.Variant("s", "Active"),
             "WindowId": GLib.Variant("i", 0),
@@ -810,7 +811,7 @@ class VirtualKeyboard(Gtk.Window):
         self.config_pos_y = 0
         self.set_position(Gtk.WindowPosition.NONE)
 
-        self.CONFIG_DIR = os.path.expanduser("~/.config/vboard")
+        self.CONFIG_DIR = os.path.expanduser("~/.config/vboard-plus")
         self.CONFIG_FILE = os.path.join(self.CONFIG_DIR, "settings.conf")
         self.config = configparser.ConfigParser()
         self.keyboard_layouts = load_keyboard_layouts(
@@ -1055,7 +1056,7 @@ class VirtualKeyboard(Gtk.Window):
 
     def get_app_icon_name(self):
         icon_theme = Gtk.IconTheme.get_default()
-        preferred_icon = "io.github.archisman-panigrahi.vboard"
+        preferred_icon = APP_ID
         fallback_icon = "preferences-desktop-keyboard"
         if icon_theme and icon_theme.has_icon(preferred_icon):
             return preferred_icon
@@ -1076,7 +1077,7 @@ class VirtualKeyboard(Gtk.Window):
                 )
 
             self.tray_icon = AppIndicator3.Indicator.new(
-                "vboard",
+                "vboard-plus",
                 icon_name,
                 AppIndicator3.IndicatorCategory.APPLICATION_STATUS,
             )
@@ -1108,7 +1109,7 @@ class VirtualKeyboard(Gtk.Window):
         try:
             self.tray_icon = Gtk.StatusIcon()
             self.tray_icon.set_from_icon_name(icon_name)
-            self.tray_icon.set_tooltip_text("Vboard - Virtual Keyboard")
+            self.tray_icon.set_tooltip_text(f"{APP_DISPLAY_NAME} - Virtual Keyboard")
             self.tray_icon.connect("activate", self.on_statusicon_activate)
             self.tray_icon.connect("popup-menu", self.on_statusicon_popup_menu)
             self.tray_menu = self.build_tray_menu()
@@ -1693,9 +1694,9 @@ class VirtualKeyboard(Gtk.Window):
         about_dialog.set_program_name(APP_DISPLAY_NAME)
         about_dialog.set_version(VERSION)
         about_dialog.set_comments(
-            "A lightweight virtual keyboard for GNU/Linux with Wayland support.\n\n"
-            "Originally created by mdev588. The original project was archived, "
-            "and it is now maintained by Archisman Panigrahi.\n\n"
+            "An enhanced fork of vboard — a lightweight virtual keyboard for GNU/Linux with Wayland support.\n\n"
+            "Originally created by mdev588 and maintained upstream by Archisman Panigrahi.\n\n"
+            "Upstream project: https://github.com/archisman-panigrahi/vboard\n"
             "Original project: https://github.com/mdev588/vboard\n"
             "Special thanks to honjow for the icon and patches.\n"
             "Thanks to Yavuz Kagan Yadigar for the enhanced theme inspiration.\n"
@@ -1707,7 +1708,7 @@ class VirtualKeyboard(Gtk.Window):
             "Copyright © 2025 mdev588\n"
             "Copyright © 2026 Archisman Panigrahi"
         )
-        about_dialog.set_website("https://github.com/archisman-panigrahi/vboard")
+        about_dialog.set_website("https://github.com/whitegeraph/vboard-plus")
         about_dialog.set_website_label("Homepage")
         about_dialog.set_logo_icon_name(self.get_app_icon_name())
         about_dialog.run()
@@ -1818,7 +1819,7 @@ class VirtualKeyboard(Gtk.Window):
             return
 
         dialog = Gtk.Dialog(
-            title="Options for Vboard",
+            title=f"Options for {APP_DISPLAY_NAME}",
             transient_for=self,
             modal=True,
         )

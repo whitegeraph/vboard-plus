@@ -36,7 +36,7 @@ run_script() {
 
 BINDIR="$(resolve_dir "$PREFIX" "$BINDIR_OPT")"
 DATADIR="$(resolve_dir "$PREFIX" "$DATADIR_OPT")"
-VBOARD_DATA_DIR="$DATADIR/vboard"
+VBOARD_DATA_DIR="$DATADIR/vboard-plus"
 VBOARD_PYTHON_DIR="$VBOARD_DATA_DIR/vboard"
 SCRIPTS_DIR="$VBOARD_DATA_DIR/scripts"
 
@@ -46,7 +46,7 @@ export VBOARD_INSTALL_SCOPE="${VBOARD_INSTALL_SCOPE:-auto}"
 run_script "$SCRIPTS_DIR/uninstall-kwin-rule.sh" "--scope=auto"
 
 remove_udev_rule() {
-  local rule_path="/etc/udev/rules.d/70-vboard-uinput.rules"
+  local rule_path="/etc/udev/rules.d/70-vboard-plus-uinput.rules"
 
   if [[ "$EUID" -ne 0 ]]; then
     return 0
@@ -75,25 +75,31 @@ remove_file() {
   fi
 }
 
-remove_file "$BINDIR/vboard"
-remove_file "$DATADIR/applications/io.github.archisman-panigrahi.vboard.desktop"
-remove_file "$DATADIR/icons/hicolor/scalable/apps/io.github.archisman-panigrahi.vboard.svg"
+remove_file "$BINDIR/vboard-plus"
+remove_file "$DATADIR/applications/io.github.whitegeraph.vboard-plus.desktop"
+remove_file "$DATADIR/icons/hicolor/scalable/apps/io.github.whitegeraph.vboard-plus.svg"
 remove_file "$VBOARD_DATA_DIR/uinput.md"
 remove_file "$VBOARD_DATA_DIR/LICENSE"
-remove_file "$VBOARD_DATA_DIR/udev/70-vboard-uinput.rules"
+remove_file "$VBOARD_DATA_DIR/udev/70-vboard-plus-uinput.rules"
 remove_file "$VBOARD_PYTHON_DIR/__init__.py"
 remove_file "$VBOARD_PYTHON_DIR/__main__.py"
 remove_file "$VBOARD_PYTHON_DIR/app.py"
 remove_file "$VBOARD_PYTHON_DIR/constants.py"
 remove_file "$VBOARD_PYTHON_DIR/environment.py"
+remove_file "$VBOARD_PYTHON_DIR/gesture.py"
 remove_file "$VBOARD_PYTHON_DIR/gtk.py"
 remove_file "$VBOARD_PYTHON_DIR/input_backends.py"
 remove_file "$VBOARD_PYTHON_DIR/layouts.py"
+remove_file "$VBOARD_PYTHON_DIR/layouts/ar.json"
 remove_file "$VBOARD_PYTHON_DIR/layouts/en.json"
 remove_file "$VBOARD_PYTHON_DIR/layouts/de.json"
 remove_file "$VBOARD_PYTHON_DIR/layouts/fr.json"
 remove_file "$VBOARD_PYTHON_DIR/layouts/ru.json"
 remove_file "$VBOARD_PYTHON_DIR/layouts/sv.json"
+remove_file "$VBOARD_PYTHON_DIR/icons/vboard-audio-high-symbolic.svg"
+remove_file "$VBOARD_PYTHON_DIR/icons/vboard-audio-low-symbolic.svg"
+remove_file "$VBOARD_PYTHON_DIR/icons/vboard-audio-muted-symbolic.svg"
+remove_file "$VBOARD_PYTHON_DIR/icons/vboard-media-play-pause-symbolic.svg"
 remove_file "$VBOARD_PYTHON_DIR/suggestions.py"
 remove_file "$VBOARD_PYTHON_DIR/window.py"
 remove_file "$SCRIPTS_DIR/install-kwin-rule.sh"
@@ -108,6 +114,7 @@ remove_file "$SCRIPTS_DIR/install-plasma-osk.sh"
 remove_file "$SCRIPTS_DIR/uninstall-plasma-osk.sh"
 
 # Prune empty directories we touched; ignore non-empty dirs.
+rmdir "$VBOARD_PYTHON_DIR/icons" 2>/dev/null || true
 rmdir "$VBOARD_PYTHON_DIR/layouts" 2>/dev/null || true
 rmdir "$VBOARD_PYTHON_DIR" 2>/dev/null || true
 rmdir "$VBOARD_DATA_DIR/udev" 2>/dev/null || true

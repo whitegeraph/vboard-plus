@@ -1,4 +1,4 @@
-Source: vboard
+Source: vboard-plus
 Section: utils
 Priority: optional
 Maintainer: Archisman Panigrahi <apandada1@gmail.com>
@@ -11,9 +11,9 @@ Build-Depends: debhelper-compat (= 13),
  python3-gi,
  gir1.2-gtk-3.0
 Standards-Version: 4.7.0
-Homepage: https://github.com/archisman-panigrahi/vboard
+Homepage: https://github.com/whitegeraph/vboard-plus
 
-Package: vboard
+Package: vboard-plus
 Architecture: all
 Depends: ${misc:Depends},
  ${python3:Depends},
@@ -23,5 +23,5 @@ Depends: ${misc:Depends},
  python3-uinput
 Recommends: hunspell-en-us, gir1.2-ayatanaappindicator3-0.1 | gir1.2-appindicator3-0.1
 Description: Wayland virtual keyboard for GNU/Linux with modifier key support
- Vboard is a lightweight, customizable on-screen keyboard designed for Linux systems with Wayland support.
- It includes modifier keys such as Ctrl, Alt, Tab and Super (Meta/Win) for desktop shortcuts and normal keyboard workflows.
+ Vboard+ is an enhanced fork of vboard, a lightweight, customizable on-screen keyboard designed for Linux systems with Wayland support.
+ It includes modifier keys such as Ctrl, Alt, Tab, Super (Meta/Win), a toggleable top Function Row, Arabic layout, and automatic system layout sync.

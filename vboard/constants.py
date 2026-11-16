@@ -1,5 +1,5 @@
-APP_DISPLAY_NAME = "Vboard"
-APP_ID = "io.github.archisman-panigrahi.vboard"
+APP_DISPLAY_NAME = "Vboard+"
+APP_ID = "io.github.whitegeraph.vboard-plus"
 VERSION = "2.7.0"
 
 MODIFIER_KEYS = (

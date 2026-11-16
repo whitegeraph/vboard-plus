@@ -1,6 +1,6 @@
-project('vboard', version: '1.3')
+project('vboard-plus', version: '1.3')
 
-vboard_data_dir = join_paths(get_option('datadir'), 'vboard')
+vboard_data_dir = join_paths(get_option('datadir'), 'vboard-plus')
 vboard_python_dir = join_paths(vboard_data_dir, 'vboard')
 scripts_install_dir = join_paths(vboard_data_dir, 'scripts')
 udev_data_dir = join_paths(vboard_data_dir, 'udev')
@@ -10,7 +10,7 @@ icons_dir = join_paths(get_option('datadir'), 'icons', 'hicolor', 'scalable', 'a
 install_data(
   'vboard.py',
   install_dir: get_option('bindir'),
-  rename: 'vboard',
+  rename: 'vboard-plus',
   install_mode: 'rwxr-xr-x',
 )
 
@@ -21,7 +21,7 @@ install_data(
 )
 
 install_data(
-  'udev/70-vboard-uinput.rules',
+  'udev/70-vboard-plus-uinput.rules',
   install_dir: udev_data_dir,
 )
 
@@ -53,7 +53,7 @@ install_subdir(
 )
 
 install_data(
-  'io.github.archisman-panigrahi.vboard.svg',
+  'io.github.whitegeraph.vboard-plus.svg',
   install_dir: icons_dir,
 )
 
@@ -67,10 +67,10 @@ install_data(
 )
 
 desktop_conf = configuration_data()
-desktop_conf.set('VBOARD_EXEC', 'vboard')
+desktop_conf.set('VBOARD_EXEC', 'vboard-plus')
 configured_desktop = configure_file(
-  input: 'meson/io.github.archisman-panigrahi.vboard.desktop.in',
-  output: 'io.github.archisman-panigrahi.vboard.desktop',
+  input: 'meson/io.github.whitegeraph.vboard-plus.desktop.in',
+  output: 'io.github.whitegeraph.vboard-plus.desktop',
   configuration: desktop_conf,
 )
 

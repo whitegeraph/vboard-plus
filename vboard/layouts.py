@@ -5,7 +5,7 @@ from .constants import DEFAULT_KEYBOARD_LAYOUT
 
 
 SYSTEM_LAYOUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "layouts")
-USER_LAYOUT_DIR = os.path.expanduser("~/.config/vboard/layouts")
+USER_LAYOUT_DIR = os.path.expanduser("~/.config/vboard-plus/layouts")
 REQUIRED_LAYOUT_FIELDS = ("id", "label", "rows")
 
 

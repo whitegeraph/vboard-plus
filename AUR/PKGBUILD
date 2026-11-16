@@ -1,13 +1,13 @@
 # Maintainer: Archisman Panigrahi <apandada1ATgmail.com>
 # Contributor: honjow
 
-_pkgname=vboard
+_pkgname=vboard-plus
 pkgname="${_pkgname}-git"
 pkgver=2.7.0
 pkgrel=1
-pkgdesc='Wayland virtual keyboard for GNU/Linux with modifier key support'
+pkgdesc='Wayland virtual keyboard for GNU/Linux with modifier key support (enhanced vboard fork)'
 arch=('any')
-url='https://github.com/archisman-panigrahi/vboard'
+url='https://github.com/whitegeraph/vboard-plus'
 license=('GPL3')
 install="${pkgname}.install"
 depends=(
@@ -29,7 +29,7 @@ optdepends=(
 )
 provides=("${_pkgname}")
 conflicts=("${_pkgname}")
-source=("${_pkgname}::git+https://github.com/archisman-panigrahi/vboard.git#branch=kde-fix")
+source=("${_pkgname}::git+https://github.com/whitegeraph/vboard-plus.git#branch=main")
 sha256sums=('SKIP')
 
 pkgver() {

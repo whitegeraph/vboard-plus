@@ -70,7 +70,8 @@ def install_kwin_rule_if_needed():
     local_script = os.path.join(get_data_root(), "scripts", "install-kwin-rule.sh")
     for script_path in (
         local_script,
-        "/usr/share/vboard/scripts/install-kwin-rule.sh",
+        "/usr/local/share/vboard-plus/scripts/install-kwin-rule.sh",
+        "/usr/share/vboard-plus/scripts/install-kwin-rule.sh",
         "./scripts/install-kwin-rule.sh",
     ):
         if os.path.isfile(script_path):

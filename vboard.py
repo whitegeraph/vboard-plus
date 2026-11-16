@@ -7,7 +7,7 @@ import sys
 def _candidate_roots():
     wrapper_dir = os.path.dirname(os.path.realpath(__file__))
     yield wrapper_dir
-    yield os.path.normpath(os.path.join(wrapper_dir, "..", "share", "vboard"))
+    yield os.path.normpath(os.path.join(wrapper_dir, "..", "share", "vboard-plus"))
 
 
 def _add_package_root_to_path():

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-RULE_NAME="vboard"
-APP_ID="io.github.archisman-panigrahi.vboard"
+RULE_NAME="vboard-plus"
+APP_ID="io.github.whitegeraph.vboard-plus"
 DEFAULT_SCOPE="${VBOARD_INSTALL_SCOPE:-auto}"
 SCOPE="$DEFAULT_SCOPE"
 SYSTEM_PREFIX="${VBOARD_PREFIX:-/usr/local}"

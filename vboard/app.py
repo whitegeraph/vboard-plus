@@ -7,10 +7,10 @@ from .gtk import Gio, GLib, Gtk
 from .window import BUG_REPORT_URL, VirtualKeyboard
 
 
-USAGE = f"""Usage: vboard [OPTION]
+USAGE = f"""Usage: vboard-plus [OPTION]
 
 Options:
-  --toggle    Toggle the vboard window show/hide status
+  --toggle    Toggle the {APP_DISPLAY_NAME} window show/hide status
   --help      Show this help message
 
 Report bugs: {BUG_REPORT_URL}

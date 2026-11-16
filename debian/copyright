@@ -1,14 +1,14 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: vboard
+Upstream-Name: vboard-plus
 Upstream-Contact: Archisman Panigrahi <apandada1@gmail.com>
-Source: https://github.com/archisman-panigrahi/vboard
+Source: https://github.com/whitegeraph/vboard-plus
 
 Files: *
 Copyright: 2025 mdev588
            2026 Archisman Panigrahi Archisman Panigrahi <apandada1@gmail.com>
 License: GPL-3
 
-Files: io.github.archisman-panigrahi.vboard.svg
+Files: io.github.whitegeraph.vboard-plus.svg
 Copyright: 2025 honjow
 License: GPL-3
 

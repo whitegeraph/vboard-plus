@@ -10,7 +10,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}Vboard Setup for Ubuntu/Debian${NC}"
+echo -e "${BLUE}Vboard+ Setup for Ubuntu/Debian${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
@@ -27,7 +27,7 @@ sudo apt update
 
 # Step 2: Install dependencies
 echo -e "${YELLOW}Step 2: Installing dependencies...${NC}"
-PACKAGES="python3-gi gir1.2-gtk-3.0 python3-uinput gir1.2-ayatanaappindicator3-0.1 meson ninja-build python3-gi-cairo"
+PACKAGES="python3-gi python3-gi-cairo gir1.2-gtk-3.0 python3-uinput gir1.2-ayatanaappindicator3-0.1 meson ninja-build"
 
 echo "Installing: $PACKAGES"
 sudo apt install -y --no-install-recommends $PACKAGES
@@ -44,7 +44,7 @@ echo ""
 echo -e "${YELLOW}Step 3: Setting up uinput module...${NC}"
 if [ ! -f "scripts/setup-uinput.sh" ]; then
     echo -e "${RED}Error: scripts/setup-uinput.sh not found.${NC}"
-    echo -e "${RED}Please run this script from the vboard project root directory.${NC}"
+    echo -e "${RED}Please run this script from the vboard-plus project root directory.${NC}"
     exit 1
 fi
 
@@ -95,7 +95,7 @@ echo -e "${GREEN}Build completed successfully.${NC}"
 echo ""
 
 # Step 5: Install
-echo -e "${YELLOW}Step 5: Installing vboard to $PREFIX...${NC}"
+echo -e "${YELLOW}Step 5: Installing vboard-plus to $PREFIX...${NC}"
 
 echo "Installing to system location (requires sudo)..."
 sudo ninja install
@@ -114,10 +114,10 @@ echo -e "${GREEN}Installation completed successfully!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 
-echo -e "${BLUE}Vboard has been installed to $PREFIX${NC}"
+echo -e "${BLUE}Vboard+ has been installed to $PREFIX${NC}"
 echo ""
-echo "You can now run vboard from anywhere:"
-echo -e "  ${YELLOW}vboard${NC}"
+echo "You can now run vboard-plus from anywhere:"
+echo -e "  ${YELLOW}vboard-plus${NC}"
 echo ""
 echo -e "${BLUE}For KDE/Plasma integration, the setup is automatic.${NC}"
 echo -e "${BLUE}For other environments, see the README for manual setup.${NC}"

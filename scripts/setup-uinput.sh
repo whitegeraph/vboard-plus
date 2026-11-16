@@ -5,8 +5,8 @@ DEFAULT_SCOPE="${VBOARD_INSTALL_SCOPE:-auto}"
 SCOPE="$DEFAULT_SCOPE"
 SYSTEM_PREFIX="${VBOARD_PREFIX:-/usr/local}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-UDEV_RULE_SOURCE="$SCRIPT_DIR/../udev/70-vboard-uinput.rules"
-UDEV_RULE_DEST="/etc/udev/rules.d/70-vboard-uinput.rules"
+UDEV_RULE_SOURCE="$SCRIPT_DIR/../udev/70-vboard-plus-uinput.rules"
+UDEV_RULE_DEST="/etc/udev/rules.d/70-vboard-plus-uinput.rules"
 
 for arg in "$@"; do
   case "$arg" in

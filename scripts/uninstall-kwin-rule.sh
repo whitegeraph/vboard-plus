@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-RULE_NAME="vboard"
+RULE_NAME="vboard-plus"
 DEFAULT_SCOPE="${VBOARD_INSTALL_SCOPE:-auto}"
 SCOPE="$DEFAULT_SCOPE"
 SYSTEM_PREFIX="${VBOARD_PREFIX:-/usr/local}"
