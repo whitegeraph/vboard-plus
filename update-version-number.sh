@@ -47,7 +47,7 @@ tmp_constants="$(mktemp)"
 trap 'rm -f "${tmp_changelog}" "${tmp_pkgbuild}" "${tmp_constants}"' EXIT
 
 {
-  printf 'vboard (%s) unstable; urgency=medium\n\n' "${debian_version}"
+  printf 'vboard-plus (%s) unstable; urgency=medium\n\n' "${debian_version}"
   printf '  * %s\n\n' "${message}"
   printf ' %s  %s\n\n' "${maintainer_signature}" "$(date -R)"
   cat "${debian_changelog}"

@@ -1,3 +1,9 @@
+vboard-plus (2.8.0-1) unstable; urgency=medium
+
+  * Initial Vboard+ release (fork of vboard): responsive window scaling, toggleable F1-F12 Function Row with outlined symbolic icons, Arabic layout with Shift marks, and automatic system keyboard layout sync
+
+ -- whitegeraph <205411795+whitegeraph@users.noreply.github.com>  Mon, 16 Nov 2026 05:33:00 +0200
+
 vboard (2.7.0-1) unstable; urgency=medium
 
   * add --toggle and --help arguments
