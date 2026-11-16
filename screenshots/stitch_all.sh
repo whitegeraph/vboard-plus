@@ -7,11 +7,12 @@ TARGET_WIDTH=713
 TARGET_HEIGHT=310
 OUTPUT_FPS=1.25
 PALETTE_COLORS=256
+OUTPUT_GIF="themes_cycle.gif"
 
-mapfile -t frames < <(find . -maxdepth 1 -type f -name 'Screenshot_*.png' -printf '%f\n' | sort)
+mapfile -t frames < <(find . -maxdepth 1 -type f \( -name 'Screenshot_1_white.png' -o -name 'Screenshot_theme_*.png' \) -printf '%f\n' | sort)
 
 if [[ ${#frames[@]} -lt 2 ]]; then
-  echo "Need at least 2 files matching Screenshot_*.png"
+  echo "Need at least 2 theme screenshots"
   exit 1
 fi
 
@@ -27,7 +28,7 @@ done
 filter+="${concat_inputs}concat=n=${#frames[@]}:v=1:a=0[video];"
 
 ffmpeg -y "${inputs[@]}" \
-  -filter_complex "$filter[video]fps=$OUTPUT_FPS,split[s0][s1];[s0]palettegen=max_colors=$PALETTE_COLORS[p];[s1][p]paletteuse=dither=sierra2_4a" \
-  -loop 0 stitched.gif
+  -filter_complex "$filter[video]fps=$OUTPUT_FPS,split[s0][s1];[s0]palettegen=max_colors=$PALETTE_COLORS:stats_mode=single[p];[s1][p]paletteuse=new=1:dither=sierra2_4a" \
+  -loop 0 "$OUTPUT_GIF"
 
-echo "Created stitched.gif from ${#frames[@]} screenshots without transitions."
+echo "Created $OUTPUT_GIF from ${#frames[@]} screenshots without transitions."

@@ -9,7 +9,7 @@ It supports many themes, as you can see below:
 
 <img src="screenshots/Screenshot_1_white.png" width="600">
 
-<img src="screenshots/stitched.gif" width="600">
+<img src="screenshots/themes_cycle.gif" width="600">
 
 ## Overview
 **Vboard+** (`vboard-plus`) is a lightweight, customizable virtual keyboard designed for Linux desktop systems. Forked from [`archisman-panigrahi/vboard`](https://github.com/archisman-panigrahi/vboard), it runs as a Wayland-compatible on-screen keyboard on KDE Plasma and works on GNOME via Xwayland fallback, adding:
