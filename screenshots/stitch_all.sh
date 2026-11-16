@@ -3,8 +3,8 @@ set -euo pipefail
 
 # Timing: each screenshot remains visible for 0.8s.
 DISPLAY_DUR=0.8
-TARGET_WIDTH=1280
-TARGET_HEIGHT=334
+TARGET_WIDTH=713
+TARGET_HEIGHT=310
 OUTPUT_FPS=1.25
 PALETTE_COLORS=256
 
