@@ -575,3 +575,17 @@ pre {
     max-width: 100%;
   }
 }
+
+.site-footer {
+  max-width: min(860px, calc(100vw - 2rem));
+  margin: 0 auto 2.5rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.94rem;
+  line-height: 1.6;
+}
+
+.site-footer a {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
