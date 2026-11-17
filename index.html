@@ -3,15 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>vboard | Virtual Keyboard for GNU/Linux Wayland Desktops</title>
+  <title>vboard-plus | Virtual Keyboard for GNU/Linux Wayland Desktops</title>
   <meta
     name="description"
-    content="vboard is a lightweight on-screen keyboard for GNU/Linux Wayland desktops, including KDE Plasma and GNOME, with modifier keys and simple installation on Ubuntu and Arch."
+    content="vboard-plus is an enhanced fork of vboard — a lightweight, resizable on-screen keyboard for GNU/Linux Wayland desktops, with an F1–F12 function row, Arabic layout, and automatic system layout sync."
+  >
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="vboard-plus">
+  <meta property="og:title" content="vboard-plus | Virtual Keyboard for GNU/Linux Wayland Desktops">
+  <meta
+    property="og:description"
+    content="vboard-plus is an enhanced fork of vboard — a lightweight, resizable on-screen keyboard for GNU/Linux Wayland desktops, with an F1–F12 function row, Arabic layout, and automatic system layout sync."
+  >
+  <meta property="og:url" content="https://whitegeraph.github.io/vboard-plus/">
+  <meta
+    property="og:image"
+    content="https://whitegeraph.github.io/vboard-plus/screenshots/vboard_plasma.png"
   >
   <link
     rel="icon"
     type="image/svg+xml"
-    href="https://raw.githubusercontent.com/archisman-panigrahi/vboard/main/io.github.archisman-panigrahi.vboard.svg"
+    href="https://raw.githubusercontent.com/whitegeraph/vboard-plus/main/io.github.whitegeraph.vboard-plus.svg"
   >
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,18 +41,18 @@
 
     <header class="hero">
       <nav class="topbar">
-        <a class="brand" href="https://github.com/archisman-panigrahi/vboard">
+        <a class="brand" href="https://github.com/whitegeraph/vboard-plus">
           <img
-            src="https://raw.githubusercontent.com/archisman-panigrahi/vboard/main/io.github.archisman-panigrahi.vboard.svg"
-            alt="vboard logo"
+            src="https://raw.githubusercontent.com/whitegeraph/vboard-plus/main/io.github.whitegeraph.vboard-plus.svg"
+            alt="vboard-plus logo"
           >
-          <span>vboard on GitHub</span>
+          <span>vboard-plus on GitHub</span>
         </a>
         <div class="nav-links">
           <a href="#problem">Why?</a>
           <a href="#install">Install</a>
           <a href="#history">History</a>
-          <!-- <a class="button ghost" href="https://github.com/archisman-panigrahi/vboard">GitHub</a> -->
+          <!-- <a class="button ghost" href="https://github.com/whitegeraph/vboard-plus">GitHub</a> -->
         </div>
       </nav>
 
@@ -49,10 +61,10 @@
           <p class="eyebrow">Virtual keyboard for GNU/Linux Wayland desktops</p>
           <div class="tablet-shell">
             <div class="tablet-display">
-              <img src="https://raw.githubusercontent.com/archisman-panigrahi/vboard/refs/heads/main/screenshots/vboard_plasma.png" alt="vboard on KDE Plasma">
+              <img src="screenshots/vboard_plasma.png" alt="vboard-plus virtual keyboard with function row and word suggestions">
             </div>
           </div>
-          <h1>A practical on-screen keyboard for GNU/Linux Wayland desktops, with essentials like Ctrl, Alt, Tab, Super, and arrow keys.</h1>
+          <h1>A practical, resizable on-screen keyboard for GNU/Linux Wayland desktops, with essentials like Ctrl, Alt, Tab, Super, F1–F12, and Arabic layout.</h1>
           <!-- <p class="lede">
             A practical, customizable Wayland keyboard for GNU/Linux with essentials like Ctrl, Alt,
             Tab, Super, and arrow keys. It is especially helpful on touchscreen hardware, kiosk
@@ -65,7 +77,8 @@
           <ul class="feature-pills">
             <li>KDE-native, GNOME-ready</li>
             <li>Ctrl, Alt, Tab, Super</li>
-            <li>System tray</li>
+            <li>F1–F12 Function Row</li>
+            <li>Arabic &amp; Auto-Sync</li>
             <li>Word suggestions</li>
             <li>Gesture typing</li>
           </ul>
@@ -83,7 +96,7 @@
           <article class="story-card">
             <h3>The gap</h3>
             <p>
-              Even moderately basic desktop use needs keys like Ctrl, Alt, Tab, Super, and the arrow
+              Even moderately basic desktop use needs keys like Ctrl, Alt, Tab, Super, F1–F12, and the arrow
               keys, especially for terminals, shortcuts, and window navigation. The on-screen-keyboards
               shipped by KDE Plasma and GNOME do not include that full set.
             </p>
@@ -95,10 +108,10 @@
           <article class="story-card accent">
             <h3>The answer</h3>
             <p>
-              Vboard provides a lightweight, always-accessible keyboard with persistent appearance
-              settings, optional word suggestions, tray support, and a <code>uinput</code>-based input
-              backend built for modern GNU/Linux desktops. It has native Wayland support on KDE
-              Plasma and works on GNOME using Xwayland where needed.
+              vboard-plus (a fork of <a href="https://github.com/archisman-panigrahi/vboard">vboard</a>)
+              provides a lightweight, resizable keyboard with a toggleable F1–F12 function row, Arabic
+              layout, automatic system layout synchronization, optional word suggestions, tray support,
+              and a <code>uinput</code>-based input backend built for modern GNU/Linux desktops.
             </p>
             <h3>Ideal for</h3>
             <p>
@@ -119,30 +132,35 @@
           <article class="install-card ubuntu">
             <div class="card-header">
               <span class="badge">Ubuntu</span>
-              <h3>Package, PPA, or source</h3>
+              <h3>Package or source</h3>
             </div>
             <p>
-              On Debian based systems, you can install the <code>.deb</code> installer from GitHub releases.
-              In Ubuntu or Mint, you can also install from the <a href="https://launchpad.net/~apandada1/+archive/ubuntu/vboard">vboard PPA</a>.
+              On Debian and Ubuntu based systems, you can install the <code>.deb</code> installer from
+              <a href="https://github.com/whitegeraph/vboard-plus/releases">vboard-plus GitHub Releases</a>,
+              or build directly from source. (The upstream <code>vboard</code> project is also available
+              in the <a href="https://launchpad.net/~apandada1/+archive/ubuntu/vboard">upstream vboard PPA</a>.)
             </p>
             <h4>Install from GitHub release</h4>
             <p>
               Download the latest <code>.deb</code> from
-              <a href="https://github.com/archisman-panigrahi/vboard/releases">GitHub Releases</a>,
+              <a href="https://github.com/whitegeraph/vboard-plus/releases">GitHub Releases</a>,
               then install it with:
             </p>
-            <pre><code>sudo apt install ./vboard_*.deb</code></pre>
-            <p class="callout"><b>Do not</b> use <code>dpkg</code> to install. Keyboard will not function in that case.</p>
-            <p class="callout">Reboot after installation for the <code>uinput</code> permissions to apply cleanly.</p>
+            <pre><code>sudo apt install ./vboard-plus_*.deb</code></pre>
+            <p class="callout"><b>Do not</b> use <code>dpkg</code> alone if dependencies are missing. Use <code>apt</code>.</p>
+            <p class="callout">Reboot or log out and back in after installation for <code>uinput</code> permissions to apply cleanly.</p>
 
-            <h4>Install from the vboard PPA</h4>
-            <pre><code>sudo add-apt-repository ppa:apandada1/vboard
-sudo apt update
-sudo apt install vboard</code></pre>
+            <h4>Build and install with Meson</h4>
+            <pre><code>git clone https://github.com/whitegeraph/vboard-plus.git
+cd vboard-plus
+sudo bash scripts/setup-uinput.sh
+meson setup builddir --prefix=/usr/local
+meson compile -C builddir
+sudo meson install -C builddir</code></pre>
             <p class="callout">Reboot after installation for the <code>uinput</code> permissions to apply cleanly.</p>
-            <h4>Build the latest source version</h4>
-            <pre><code>git clone https://github.com/archisman-panigrahi/vboard.git
-cd vboard
+            <h4>Automated Ubuntu/Debian setup</h4>
+            <pre><code>git clone https://github.com/whitegeraph/vboard-plus.git
+cd vboard-plus
 sudo bash setup-ubuntu-debian.sh</code></pre>
             <p class="callout">Reboot after installation for the <code>uinput</code> permissions to apply cleanly.</p>
           </article>
@@ -151,13 +169,16 @@ sudo bash setup-ubuntu-debian.sh</code></pre>
             <article class="install-card arch">
               <div class="card-header">
                 <span class="badge">Arch</span>
-                <h3>Install with Pacman</h3>
+                <h3>Build from PKGBUILD or Meson</h3>
               </div>
               <p>
-                Official AUR package is coming soon, but till then, you can install it manually.
+                Build the <code>vboard-plus</code> package locally using the included <code>AUR/PKGBUILD</code>
+                or install directly with Meson.
               </p>
-              <h4>Install with an AUR helper</h4>
-              <pre><code>yay -S vboard</code></pre>
+              <h4>Build and install locally</h4>
+              <pre><code>git clone https://github.com/whitegeraph/vboard-plus.git
+cd vboard-plus/AUR
+makepkg -si</code></pre>
               <p class="callout">Reboot after installation so the desktop session picks up the new device permissions cleanly.</p>
             </article>
 
@@ -171,7 +192,7 @@ sudo bash setup-ubuntu-debian.sh</code></pre>
                 live in the project README. That page also covers <code>uinput</code> setup, Meson install
                 modes, KDE Plasma configuration, and troubleshooting.
               </p>
-              <a class="button primary" href="https://github.com/archisman-panigrahi/vboard/blob/main/README.md">
+              <a class="button primary" href="https://github.com/whitegeraph/vboard-plus/blob/main/README.md">
                 Read the full installation guide
               </a>
             </article>
@@ -187,20 +208,34 @@ sudo bash setup-ubuntu-debian.sh</code></pre>
         <p>
           Vboard was initially developed by
           <a href="https://github.com/mdev588/vboard">mdev588</a>. After that project was abandoned,
-          development and maintenance were continued by other developers in the current
+          development and maintenance were continued in the upstream
           <a href="https://github.com/archisman-panigrahi/vboard">vboard repository</a>.
+          <strong>vboard-plus</strong> is a fork of that upstream project adding responsive resizing,
+          a toggleable F1–F12 function row, Arabic layout, and automatic system layout sync.
         </p>
         <div class="history-media">
-          <img src="https://raw.githubusercontent.com/archisman-panigrahi/vboard/refs/heads/main/screenshots/stitched.gif" alt="Animated history montage of vboard screenshots">
+          <img src="screenshots/stitched.gif" alt="Animated montage of vboard-plus screenshots across color themes">
         </div>
         <div class="history-callout">
-          <p>To report issues or suggest new features, visit the current GitHub repository.</p>
-          <a class="button primary" href="https://github.com/archisman-panigrahi/vboard">
+          <p>
+            To report issues or suggest new features, visit the
+            <a href="https://github.com/whitegeraph/vboard-plus/issues">vboard-plus issue tracker</a>.
+          </p>
+          <a class="button primary" href="https://github.com/whitegeraph/vboard-plus">
             Open the GitHub repository
           </a>
         </div>
       </section>
     </main>
+
+    <footer class="site-footer">
+      <p>
+        <strong>vboard-plus</strong> is a fork of
+        <a href="https://github.com/archisman-panigrahi/vboard">archisman-panigrahi/vboard</a>
+        (originally created by <a href="https://github.com/mdev588/vboard">mdev588</a>), licensed under
+        <a href="https://github.com/whitegeraph/vboard-plus/blob/main/LICENSE">GPL-3.0</a>.
+      </p>
+    </footer>
   </div>
 </body>
 </html>
