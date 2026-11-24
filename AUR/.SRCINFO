@@ -1,0 +1,25 @@
+pkgbase = vboard-plus-git
+	pkgdesc = Wayland virtual keyboard for GNU/Linux with modifier key support (enhanced vboard fork)
+	pkgver = 2.8.0
+	pkgrel = 1
+	url = https://github.com/whitegeraph/vboard-plus
+	install = vboard-plus-git.install
+	arch = any
+	license = GPL-3.0-or-later
+	makedepends = git
+	makedepends = meson
+	makedepends = ninja
+	depends = python
+	depends = python-cairo
+	depends = python-gobject
+	depends = gtk3
+	depends = python-evdev
+	depends = libayatana-appindicator
+	optdepends = desktop-file-utils: provides update-desktop-database for helper scripts
+	optdepends = hunspell-en_us: enables word suggestions
+	provides = vboard-plus
+	conflicts = vboard-plus
+	source = vboard-plus::git+https://github.com/whitegeraph/vboard-plus.git#branch=main
+	sha256sums = SKIP
+
+pkgname = vboard-plus-git

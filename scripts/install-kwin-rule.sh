@@ -88,7 +88,7 @@ for legacy_key in ("title", "titlematch"):
 
 # KWin stores the application-identity matcher under the historical wmclass keys.
 values = {
-    "Description": "vboard always on top, no focus, remember position",
+    "Description": "vboard-plus always on top, no focus, remember position",
     "Enabled": "true",
     "wmclass": app_id,
     "wmclassmatch": "1",

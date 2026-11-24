@@ -8,14 +8,14 @@ pkgrel=1
 pkgdesc='Wayland virtual keyboard for GNU/Linux with modifier key support (enhanced vboard fork)'
 arch=('any')
 url='https://github.com/whitegeraph/vboard-plus'
-license=('GPL3')
+license=('GPL-3.0-or-later')
 install="${pkgname}.install"
 depends=(
   'python'
   'python-cairo'
   'python-gobject'
   'gtk3'
-  'python-uinput'
+  'python-evdev'
   'libayatana-appindicator'
 )
 makedepends=(
@@ -39,6 +39,7 @@ pkgver() {
 
 build() {
   cd "${srcdir}/${_pkgname}"
+  rm -rf build
   meson setup build --prefix=/usr
   meson compile -C build
 }

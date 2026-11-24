@@ -9,6 +9,110 @@ try:
 except ImportError:
     uinput = None
 
+try:
+    import evdev
+except ImportError:
+    evdev = None
+
+
+KEY_NAME_MAP = {
+    "Esc": ("KEY_ESC",),
+    "1": ("KEY_1",),
+    "2": ("KEY_2",),
+    "3": ("KEY_3",),
+    "4": ("KEY_4",),
+    "5": ("KEY_5",),
+    "6": ("KEY_6",),
+    "7": ("KEY_7",),
+    "8": ("KEY_8",),
+    "9": ("KEY_9",),
+    "0": ("KEY_0",),
+    "-": ("KEY_MINUS",),
+    "=": ("KEY_EQUAL",),
+    "Backspace": ("KEY_BACKSPACE",),
+    "Tab": ("KEY_TAB",),
+    "Q": ("KEY_Q",),
+    "W": ("KEY_W",),
+    "E": ("KEY_E",),
+    "R": ("KEY_R",),
+    "T": ("KEY_T",),
+    "Y": ("KEY_Y",),
+    "U": ("KEY_U",),
+    "I": ("KEY_I",),
+    "O": ("KEY_O",),
+    "P": ("KEY_P",),
+    "[": ("KEY_LEFTBRACE",),
+    "]": ("KEY_RIGHTBRACE",),
+    "Enter": ("KEY_ENTER",),
+    "Ctrl_L": ("KEY_LEFTCTRL",),
+    "Ctrl_R": ("KEY_RIGHTCTRL",),
+    "A": ("KEY_A",),
+    "S": ("KEY_S",),
+    "D": ("KEY_D",),
+    "F": ("KEY_F",),
+    "G": ("KEY_G",),
+    "H": ("KEY_H",),
+    "J": ("KEY_J",),
+    "K": ("KEY_K",),
+    "L": ("KEY_L",),
+    ";": ("KEY_SEMICOLON",),
+    "'": ("KEY_APOSTROPHE",),
+    "`": ("KEY_GRAVE",),
+    "Shift_L": ("KEY_LEFTSHIFT",),
+    "Shift_R": ("KEY_RIGHTSHIFT",),
+    "\\": ("KEY_BACKSLASH",),
+    "Z": ("KEY_Z",),
+    "X": ("KEY_X",),
+    "C": ("KEY_C",),
+    "V": ("KEY_V",),
+    "B": ("KEY_B",),
+    "N": ("KEY_N",),
+    "M": ("KEY_M",),
+    ",": ("KEY_COMMA",),
+    ".": ("KEY_DOT",),
+    "/": ("KEY_SLASH",),
+    "Alt_L": ("KEY_LEFTALT",),
+    "Alt_R": ("KEY_RIGHTALT",),
+    "Space": ("KEY_SPACE",),
+    "CapsLock": ("KEY_CAPSLOCK",),
+    "→": ("KEY_RIGHT",),
+    "←": ("KEY_LEFT",),
+    "↓": ("KEY_DOWN",),
+    "↑": ("KEY_UP",),
+    "Super_L": ("KEY_LEFTMETA",),
+    "Super_R": ("KEY_RIGHTMETA",),
+    "F1": ("KEY_F1",),
+    "F2": ("KEY_F2",),
+    "F3": ("KEY_F3",),
+    "F4": ("KEY_F4",),
+    "F5": ("KEY_F5",),
+    "F6": ("KEY_F6",),
+    "F7": ("KEY_F7",),
+    "F8": ("KEY_F8",),
+    "F9": ("KEY_F9",),
+    "F10": ("KEY_F10",),
+    "F11": ("KEY_F11",),
+    "F12": ("KEY_F12",),
+    "Mute": ("KEY_MUTE",),
+    "VolumeDown": ("KEY_VOLUMEDOWN",),
+    "VolumeUp": ("KEY_VOLUMEUP",),
+    "MicMute": ("KEY_MICMUTE",),
+    "BrightnessDown": ("KEY_BRIGHTNESSDOWN",),
+    "BrightnessUp": ("KEY_BRIGHTNESSUP",),
+    "PreviousSong": ("KEY_PREVIOUSSONG",),
+    "PlayPause": ("KEY_PLAYPAUSE",),
+    "NextSong": ("KEY_NEXTSONG",),
+    "PrtSc": ("KEY_SYSRQ", "KEY_PRINT"),
+    "Delete": ("KEY_DELETE",),
+    "Insert": ("KEY_INSERT",),
+    "Home": ("KEY_HOME",),
+    "End": ("KEY_END",),
+}
+
+OPTIONAL_KEY_NAME_MAP = {
+    "<": ("KEY_LESS", "KEY_102ND"),
+}
+
 
 class InputBackend:
     name = "unknown"
@@ -47,116 +151,7 @@ class NullInputBackend(InputBackend):
         return
 
 
-class UInputBackend(InputBackend):
-    name = "uinput"
-
-    def __init__(self):
-        if uinput is None:
-            raise RuntimeError("python-uinput is not installed")
-
-        less_key = self._uinput_key("KEY_LESS", "KEY_102ND", required=False)
-        self.key_map = {
-            "Esc": uinput.KEY_ESC,
-            "1": uinput.KEY_1,
-            "2": uinput.KEY_2,
-            "3": uinput.KEY_3,
-            "4": uinput.KEY_4,
-            "5": uinput.KEY_5,
-            "6": uinput.KEY_6,
-            "7": uinput.KEY_7,
-            "8": uinput.KEY_8,
-            "9": uinput.KEY_9,
-            "0": uinput.KEY_0,
-            "-": uinput.KEY_MINUS,
-            "=": uinput.KEY_EQUAL,
-            "Backspace": uinput.KEY_BACKSPACE,
-            "Tab": uinput.KEY_TAB,
-            "Q": uinput.KEY_Q,
-            "W": uinput.KEY_W,
-            "E": uinput.KEY_E,
-            "R": uinput.KEY_R,
-            "T": uinput.KEY_T,
-            "Y": uinput.KEY_Y,
-            "U": uinput.KEY_U,
-            "I": uinput.KEY_I,
-            "O": uinput.KEY_O,
-            "P": uinput.KEY_P,
-            "[": uinput.KEY_LEFTBRACE,
-            "]": uinput.KEY_RIGHTBRACE,
-            "Enter": uinput.KEY_ENTER,
-            "Ctrl_L": uinput.KEY_LEFTCTRL,
-            "Ctrl_R": uinput.KEY_RIGHTCTRL,
-            "A": uinput.KEY_A,
-            "S": uinput.KEY_S,
-            "D": uinput.KEY_D,
-            "F": uinput.KEY_F,
-            "G": uinput.KEY_G,
-            "H": uinput.KEY_H,
-            "J": uinput.KEY_J,
-            "K": uinput.KEY_K,
-            "L": uinput.KEY_L,
-            ";": uinput.KEY_SEMICOLON,
-            "'": uinput.KEY_APOSTROPHE,
-            "`": uinput.KEY_GRAVE,
-            "Shift_L": uinput.KEY_LEFTSHIFT,
-            "Shift_R": uinput.KEY_RIGHTSHIFT,
-            "\\": uinput.KEY_BACKSLASH,
-            "Z": uinput.KEY_Z,
-            "X": uinput.KEY_X,
-            "C": uinput.KEY_C,
-            "V": uinput.KEY_V,
-            "B": uinput.KEY_B,
-            "N": uinput.KEY_N,
-            "M": uinput.KEY_M,
-            ",": uinput.KEY_COMMA,
-            ".": uinput.KEY_DOT,
-            "/": uinput.KEY_SLASH,
-            "Alt_L": uinput.KEY_LEFTALT,
-            "Alt_R": uinput.KEY_RIGHTALT,
-            "Space": uinput.KEY_SPACE,
-            "CapsLock": uinput.KEY_CAPSLOCK,
-            "→": uinput.KEY_RIGHT,
-            "←": uinput.KEY_LEFT,
-            "↓": uinput.KEY_DOWN,
-            "↑": uinput.KEY_UP,
-            "Super_L": uinput.KEY_LEFTMETA,
-            "Super_R": uinput.KEY_RIGHTMETA,
-            "F1": uinput.KEY_F1,
-            "F2": uinput.KEY_F2,
-            "F3": uinput.KEY_F3,
-            "F4": uinput.KEY_F4,
-            "F5": uinput.KEY_F5,
-            "F6": uinput.KEY_F6,
-            "F7": uinput.KEY_F7,
-            "F8": uinput.KEY_F8,
-            "F9": uinput.KEY_F9,
-            "F10": uinput.KEY_F10,
-            "F11": uinput.KEY_F11,
-            "F12": uinput.KEY_F12,
-            "Mute": uinput.KEY_MUTE,
-            "VolumeDown": uinput.KEY_VOLUMEDOWN,
-            "VolumeUp": uinput.KEY_VOLUMEUP,
-            "MicMute": uinput.KEY_MICMUTE,
-            "BrightnessDown": uinput.KEY_BRIGHTNESSDOWN,
-            "BrightnessUp": uinput.KEY_BRIGHTNESSUP,
-            "PreviousSong": uinput.KEY_PREVIOUSSONG,
-            "PlayPause": uinput.KEY_PLAYPAUSE,
-            "NextSong": uinput.KEY_NEXTSONG,
-            "PrtSc": self._uinput_key("KEY_SYSRQ", "KEY_PRINT"),
-            "Delete": uinput.KEY_DELETE,
-            "Insert": uinput.KEY_INSERT,
-            "Home": uinput.KEY_HOME,
-            "End": uinput.KEY_END,
-        }
-        if less_key is not None:
-            self.key_map["<"] = less_key
-        self.modifier_order = [key for key in MODIFIER_KEYS if key in self.key_map]
-        device_keys = list(dict.fromkeys(list(self.key_map.values()) + [uinput.KEY_SYSRQ, uinput.KEY_PRINT]))
-        self.device = uinput.Device(device_keys)
-        self.pressed_keys = {}
-        atexit.register(self.destroy)
-        self._install_excepthook()
-
+class _BaseUInputBackend(InputBackend):
     def _install_excepthook(self):
         old_hook = sys.excepthook
 
@@ -170,33 +165,23 @@ class UInputBackend(InputBackend):
 
         sys.excepthook = _hook
 
-    @staticmethod
-    def _uinput_key(*names, required=True):
-        for name in names:
-            key = getattr(uinput, name, None)
-            if key is not None:
-                return key
-        if required:
-            raise RuntimeError(
-                "python-uinput is missing required key constant(s): "
-                + ", ".join(names)
-            )
-        return None
+    def _emit_raw(self, key_event, value, syn=True):
+        raise NotImplementedError
 
     def _press_key(self, key_event, syn=True):
-        self.device.emit(key_event, 1, syn=syn)
+        self._emit_raw(key_event, 1, syn=syn)
         self.pressed_keys[key_event] = time.monotonic()
 
     def _release_key(self, key_event, syn=True):
         try:
-            self.device.emit(key_event, 0, syn=syn)
+            self._emit_raw(key_event, 0, syn=syn)
         finally:
             self.pressed_keys.pop(key_event, None)
 
     def release_all_keys(self):
         for key_event in list(self.pressed_keys.keys()):
             try:
-                self.device.emit(key_event, 0, syn=True)
+                self._emit_raw(key_event, 0, syn=True)
             except Exception:
                 pass
             finally:
@@ -210,7 +195,7 @@ class UInputBackend(InputBackend):
         ]
         for key_event in stuck:
             try:
-                self.device.emit(key_event, 0, syn=True)
+                self._emit_raw(key_event, 0, syn=True)
             except Exception:
                 pass
             finally:
@@ -240,6 +225,56 @@ class UInputBackend(InputBackend):
                 except Exception:
                     pass
 
+
+class UInputBackend(_BaseUInputBackend):
+    name = "uinput"
+
+    def __init__(self):
+        if uinput is None:
+            raise RuntimeError("python-uinput is not installed")
+
+        self.key_map = {
+            label: self._uinput_key(*names, required=True)
+            for label, names in KEY_NAME_MAP.items()
+        }
+        for label, names in OPTIONAL_KEY_NAME_MAP.items():
+            key = self._uinput_key(*names, required=False)
+            if key is not None:
+                self.key_map[label] = key
+
+        self.modifier_order = [key for key in MODIFIER_KEYS if key in self.key_map]
+        extra_keys = [
+            k
+            for k in (
+                self._uinput_key("KEY_SYSRQ", required=False),
+                self._uinput_key("KEY_PRINT", required=False),
+            )
+            if k is not None
+        ]
+        device_keys = list(dict.fromkeys(list(self.key_map.values()) + extra_keys))
+        self.device = uinput.Device(device_keys)
+        self.pressed_keys = {}
+        atexit.register(self.destroy)
+        self._install_excepthook()
+
+    @staticmethod
+    def _uinput_key(*names, required=True):
+        for name in names:
+            key = getattr(uinput, name, None)
+            if key is not None:
+                return key
+        if required:
+            raise RuntimeError(
+                "python-uinput is missing required key constant(s): "
+                + ", ".join(names)
+            )
+        return None
+
+    def _emit_raw(self, key_event, value, syn=True):
+        if self.device is None:
+            return
+        self.device.emit(key_event, value, syn=syn)
+
     def destroy(self):
         self.release_all_keys()
         device = getattr(self, "device", None)
@@ -249,3 +284,89 @@ class UInputBackend(InputBackend):
                 device.destroy()
             except Exception:
                 pass
+
+
+class EvdevUInputBackend(_BaseUInputBackend):
+    name = "evdev-uinput"
+
+    def __init__(self):
+        if evdev is None:
+            raise RuntimeError("python-evdev is not installed")
+
+        ecodes = evdev.ecodes
+        self._ev_key = ecodes.EV_KEY
+        self.key_map = {
+            label: self._evdev_key(ecodes, *names, required=True)
+            for label, names in KEY_NAME_MAP.items()
+        }
+        for label, names in OPTIONAL_KEY_NAME_MAP.items():
+            key = self._evdev_key(ecodes, *names, required=False)
+            if key is not None:
+                self.key_map[label] = key
+
+        self.modifier_order = [key for key in MODIFIER_KEYS if key in self.key_map]
+        extra_keys = [
+            k
+            for k in (
+                self._evdev_key(ecodes, "KEY_SYSRQ", required=False),
+                self._evdev_key(ecodes, "KEY_PRINT", required=False),
+            )
+            if k is not None
+        ]
+        device_keys = list(dict.fromkeys(list(self.key_map.values()) + extra_keys))
+        self.device = evdev.UInput(
+            {self._ev_key: device_keys},
+            name="vboard-plus",
+        )
+        self.pressed_keys = {}
+        atexit.register(self.destroy)
+        self._install_excepthook()
+
+    @staticmethod
+    def _evdev_key(ecodes, *names, required=True):
+        for name in names:
+            key = getattr(ecodes, name, None)
+            if key is not None:
+                return key
+        if required:
+            raise RuntimeError(
+                "python-evdev is missing required key constant(s): "
+                + ", ".join(names)
+            )
+        return None
+
+    def _emit_raw(self, key_event, value, syn=True):
+        if self.device is None:
+            return
+        self.device.write(self._ev_key, key_event, value)
+        if syn:
+            self.device.syn()
+
+    def destroy(self):
+        self.release_all_keys()
+        device = getattr(self, "device", None)
+        if device is not None:
+            self.device = None
+            try:
+                device.close()
+            except Exception:
+                pass
+
+
+def create_uinput_backend():
+    errors = []
+    if uinput is not None:
+        try:
+            return UInputBackend()
+        except Exception as exc:
+            errors.append(f"python-uinput: {exc}")
+
+    if evdev is not None:
+        try:
+            return EvdevUInputBackend()
+        except Exception as exc:
+            errors.append(f"python-evdev: {exc}")
+
+    if errors:
+        raise RuntimeError("; ".join(errors))
+    raise RuntimeError("Neither python-uinput nor python-evdev is installed")

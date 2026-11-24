@@ -1,7 +1,7 @@
 post_install() {
-  if [[ -x /usr/share/vboard/scripts/meson-post-install.sh ]]; then
-    if ! /usr/share/vboard/scripts/meson-post-install.sh /usr/share/vboard/scripts /usr; then
-      printf '%s\n' 'vboard: warning: post-install integration was not completed; see /usr/share/vboard/uinput.md'
+  if [[ -x /usr/share/vboard-plus/scripts/meson-post-install.sh ]]; then
+    if ! /usr/share/vboard-plus/scripts/meson-post-install.sh /usr/share/vboard-plus/scripts /usr; then
+      printf '%s\n' 'vboard-plus: warning: post-install integration was not completed; see /usr/share/vboard-plus/uinput.md'
     fi
   fi
 }
@@ -11,7 +11,7 @@ post_upgrade() {
 }
 
 post_remove() {
-  local rule=/etc/udev/rules.d/70-vboard-uinput.rules
+  local rule=/etc/udev/rules.d/70-vboard-plus-uinput.rules
 
   if [[ -e "$rule" ]]; then
     rm -f "$rule"

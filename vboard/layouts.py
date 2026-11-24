@@ -260,6 +260,29 @@ def resolve_gnome_input_source(
     )
 
 
+def resolve_kde_layout(layouts_list, current_index, available_layouts):
+    """Resolve the active KDE org.kde.KeyboardLayouts entry to a layout ID."""
+    entries = list(layouts_list) if layouts_list else []
+    if not entries:
+        return None
+
+    idx = current_index if isinstance(current_index, int) else 0
+    if not (0 <= idx < len(entries)):
+        idx = 0
+
+    entry = entries[idx]
+    if not entry:
+        return None
+
+    layout = str(entry[0]).strip() if len(entry) >= 1 and entry[0] is not None else ""
+    variant = str(entry[1]).strip() if len(entry) >= 2 and entry[1] is not None else ""
+    if not layout:
+        return None
+
+    source_id = f"{layout}+{variant}" if variant else layout
+    return resolve_system_layout_id("xkb", source_id, available_layouts)
+
+
 def resolve_keymap_layout(keymap, available_layouts, keyval_name_fn):
     """Best-effort fallback detecting layout from Gdk.Keymap group 0 entries."""
     if keymap is None or not available_layouts:

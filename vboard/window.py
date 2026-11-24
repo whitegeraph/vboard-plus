@@ -38,12 +38,13 @@ from .gtk import (
     Gtk,
     Pango,
 )
-from .input_backends import NullInputBackend, UInputBackend
+from .input_backends import NullInputBackend, create_uinput_backend
 from .layouts import (
     get_default_layout_key,
     get_layout_choices,
     load_keyboard_layouts,
     resolve_gnome_input_source,
+    resolve_kde_layout,
     resolve_keymap_layout,
 )
 from .suggestions import HunspellSuggestionEngine
@@ -839,6 +840,8 @@ class VirtualKeyboard(Gtk.Window):
         self.tray_follow_layout_item = None
         self._input_sources_settings = None
         self._input_sources_signal_ids = []
+        self._kde_bus = None
+        self._kde_layout_sub_ids = []
         self._layout_keymap = None
         self._keymap_layout_handler_id = None
         self._syncing_settings_controls = False
@@ -914,7 +917,7 @@ class VirtualKeyboard(Gtk.Window):
         self.create_settings()
         self.create_tray_icon()
         try:
-            self.backend = UInputBackend()
+            self.backend = create_uinput_backend()
         except Exception as exc:
             self.backend = NullInputBackend(
                 f"Could not initialize uinput backend ({exc}); key output is disabled"
@@ -1457,6 +1460,24 @@ class VirtualKeyboard(Gtk.Window):
                 self._input_sources_signal_ids = []
 
         try:
+            self._kde_bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+            if self._kde_bus is not None:
+                for signal_name in ("layoutChanged", "layoutListChanged"):
+                    sub_id = self._kde_bus.signal_subscribe(
+                        "org.kde.keyboard",
+                        "org.kde.KeyboardLayouts",
+                        signal_name,
+                        "/Layouts",
+                        None,
+                        Gio.DBusSignalFlags.NONE,
+                        self.on_kde_keyboard_layout_changed,
+                    )
+                    self._kde_layout_sub_ids.append(sub_id)
+        except (GLib.Error, TypeError, RuntimeError):
+            self._kde_bus = None
+            self._kde_layout_sub_ids = []
+
+        try:
             display = self.get_display() if hasattr(self, "get_display") else None
             if display is None:
                 display = Gdk.Display.get_default()
@@ -1484,6 +1505,42 @@ class VirtualKeyboard(Gtk.Window):
         except (TypeError, RuntimeError):
             return False
 
+    def _get_kde_keyboard_layout(self):
+        if self._kde_bus is None:
+            return None, None
+        try:
+            layouts_variant = self._kde_bus.call_sync(
+                "org.kde.keyboard",
+                "/Layouts",
+                "org.kde.KeyboardLayouts",
+                "getLayoutsList",
+                None,
+                GLib.VariantType("(a(sss))"),
+                Gio.DBusCallFlags.NONE,
+                200,
+                None,
+            )
+            current_variant = self._kde_bus.call_sync(
+                "org.kde.keyboard",
+                "/Layouts",
+                "org.kde.KeyboardLayouts",
+                "getLayout",
+                None,
+                GLib.VariantType("(u)"),
+                Gio.DBusCallFlags.NONE,
+                200,
+                None,
+            )
+            layouts_list = layouts_variant.unpack()[0]
+            current_index = current_variant.unpack()[0]
+            return layouts_list, current_index
+        except (GLib.Error, TypeError, RuntimeError, ValueError, IndexError):
+            return None, None
+
+    def _has_configured_kde_layouts(self):
+        layouts_list, _ = self._get_kde_keyboard_layout()
+        return bool(layouts_list)
+
     def detect_system_keyboard_layout(self):
         if self._input_sources_settings is not None:
             try:
@@ -1502,6 +1559,14 @@ class VirtualKeyboard(Gtk.Window):
             except (TypeError, RuntimeError):
                 pass
 
+        kde_layouts, kde_index = self._get_kde_keyboard_layout()
+        if kde_layouts:
+            return resolve_kde_layout(
+                kde_layouts,
+                kde_index,
+                self.keyboard_layouts,
+            )
+
         if self._layout_keymap is not None:
             return resolve_keymap_layout(
                 self._layout_keymap,
@@ -1519,10 +1584,16 @@ class VirtualKeyboard(Gtk.Window):
         if self.follow_system_layout:
             self.sync_keyboard_layout_from_system(save=False)
 
+    def on_kde_keyboard_layout_changed(self, *args):
+        if self.follow_system_layout:
+            self.sync_keyboard_layout_from_system(save=False)
+
     def on_system_keymap_changed(self, keymap=None):
         if not self.follow_system_layout:
             return
         if self._has_configured_gnome_input_sources():
+            return
+        if self._has_configured_kde_layouts():
             return
         self.sync_keyboard_layout_from_system(save=False)
 
@@ -3492,6 +3563,11 @@ class VirtualKeyboard(Gtk.Window):
                 self._input_sources_settings.disconnect(handler_id)
             self._input_sources_signal_ids = []
             self._input_sources_settings = None
+        if getattr(self, "_kde_bus", None) is not None:
+            for sub_id in getattr(self, "_kde_layout_sub_ids", []):
+                self._kde_bus.signal_unsubscribe(sub_id)
+            self._kde_layout_sub_ids = []
+            self._kde_bus = None
         if (
             getattr(self, "_layout_keymap", None) is not None
             and getattr(self, "_keymap_layout_handler_id", None) is not None
