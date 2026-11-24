@@ -695,17 +695,18 @@ class ScalableSuggestionButton(Gtk.Button):
 class ScalableComboBoxText(Gtk.ComboBoxText):
     def __init__(self):
         super().__init__()
-        self._nat_h = 24
+        self._nat_h = 28
 
     def set_target_height(self, nat_h):
-        self._nat_h = max(22, int(nat_h))
+        self._nat_h = max(24, int(nat_h))
 
     def do_get_preferred_width(self):
         _min_width, natural_width = Gtk.ComboBoxText.do_get_preferred_width(self)
         return (18, max(18, natural_width))
 
     def do_get_preferred_height(self):
-        return (22, self._nat_h)
+        min_height, _natural_height = Gtk.ComboBoxText.do_get_preferred_height(self)
+        return (min(22, min_height), max(self._nat_h, min_height))
 
     def do_get_preferred_width_for_height(self, height):
         return self.do_get_preferred_width()
@@ -1845,6 +1846,8 @@ class VirtualKeyboard(Gtk.Window):
             if isinstance(renderer, Gtk.CellRendererText):
                 renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
                 renderer.set_property("width-chars", 1)
+                renderer.set_property("ypad", 0)
+                renderer.set_property("yalign", 0.5)
         self.header.pack_end(self.color_combobox)
 
         for label, _color in COLOR_CHOICES:
@@ -1880,6 +1883,7 @@ class VirtualKeyboard(Gtk.Window):
 
         self.color_combobox.set_active(active_index)
         self.sync_function_row_controls()
+        self.set_header_menu_visible(False)
 
     def on_header_toggle_function_row(self, widget=None):
         self.set_function_row_visible(not self.show_function_row)
@@ -2315,13 +2319,30 @@ class VirtualKeyboard(Gtk.Window):
             self.buttons.append(button)
         return button
 
-    def change_visibility(self, widget=None):
+    def set_header_menu_visible(self, visible):
+        visible = bool(visible)
         for button in self.buttons:
             if button.get_label() != "☰":
-                button.set_visible(not button.get_visible())
-        self.color_combobox.set_visible(not self.color_combobox.get_visible())
-        self._last_suggestion_scale = None
-        self.update_suggestion_bar_scale()
+                if visible:
+                    button.set_no_show_all(False)
+                    button.show_all()
+                    button.set_no_show_all(True)
+                else:
+                    button.set_no_show_all(True)
+                    button.hide()
+        if visible:
+            self.color_combobox.set_no_show_all(False)
+            self.color_combobox.show_all()
+            self.color_combobox.set_no_show_all(True)
+        else:
+            self.color_combobox.set_no_show_all(True)
+            self.color_combobox.hide()
+        if hasattr(self, "grid"):
+            self._last_suggestion_scale = None
+            self.update_suggestion_bar_scale()
+
+    def change_visibility(self, widget=None):
+        self.set_header_menu_visible(not self.color_combobox.get_visible())
 
     def change_color(self, widget):
         selected_label = self.color_combobox.get_active_text()
@@ -2444,7 +2465,8 @@ class VirtualKeyboard(Gtk.Window):
         key_padding = 0
         key_margin = 0 if scale < 0.45 else 1
         key_margin_enhanced = key_margin
-        combo_padding = 0 if scale < 0.65 else max(1, min(4, int(round(4 * min(1.0, scale)))))
+        combo_pad_v = header_btn_pad_v
+        combo_pad_h = max(2, min(8, int(round(6 * min(1.0, scale)))))
         sugg_pad_v = 0 if scale < 0.65 else (1 if scale < 0.85 else 2)
         sugg_pad_h = max(2, min(8, int(round(8 * min(1.0, scale)))))
 
@@ -2683,11 +2705,18 @@ class VirtualKeyboard(Gtk.Window):
                 padding: 5px;
             }}
 
+            #vboard-main #combobox {{
+                min-height: 0px;
+                font-size: {self.header_font_size}px;
+            }}
+
             #vboard-main #combobox button.combo {{
                 min-width: 0px;
                 min-height: {header_btn_min_h}px;
                 color: {rgba((239, 243, 250), 1.0)};
-                padding: {combo_padding}px;
+                font-size: {self.header_font_size}px;
+                padding: {combo_pad_v}px {combo_pad_h}px;
+                margin: 0px {header_btn_margin}px;
                 border: 1px solid {rgba((13, 21, 33), 1.0)};
                 border-radius: {btn_radius}px;
                 background-image: linear-gradient(
@@ -2695,6 +2724,26 @@ class VirtualKeyboard(Gtk.Window):
                     {rgba((69, 80, 101), 1.0)},
                     {rgba((40, 50, 68), 1.0)}
                 );
+            }}
+
+            #vboard-main #combobox cellview {{
+                color: {rgba((239, 243, 250), 1.0)};
+                font-size: {self.header_font_size}px;
+                padding: 0px;
+                margin: 0px;
+            }}
+
+            #vboard-main #combobox button.combo arrow {{
+                -gtk-icon-source: -gtk-icontheme("pan-down-symbolic");
+                color: {rgba((239, 243, 250), 0.85)};
+                background-color: transparent;
+                background-image: none;
+                border: none;
+                box-shadow: none;
+                min-width: 14px;
+                min-height: 14px;
+                padding: 0px;
+                margin: 0px 0px 0px 4px;
             }}
 
             #vboard-main #suggestion-bar {{
@@ -2911,15 +2960,42 @@ class VirtualKeyboard(Gtk.Window):
                 padding: 5px;
             }}
 
+            #vboard-main #combobox {{
+                min-height: 0px;
+                font-size: {self.header_font_size}px;
+            }}
+
             #vboard-main #combobox button.combo {{
                 min-width: 0px;
                 min-height: {header_btn_min_h}px;
                 color: rgb({rgb_css(text_rgb)});
-                padding: {combo_padding}px;
+                font-size: {self.header_font_size}px;
+                padding: {combo_pad_v}px {combo_pad_h}px;
+                margin: 0px {header_btn_margin}px;
                 border: 1px solid transparent;
                 border-radius: {btn_radius_enhanced}px;
                 background-color: transparent;
                 background-image: none;
+            }}
+
+            #vboard-main #combobox cellview {{
+                color: rgb({rgb_css(text_rgb)});
+                font-size: {self.header_font_size}px;
+                padding: 0px;
+                margin: 0px;
+            }}
+
+            #vboard-main #combobox button.combo arrow {{
+                -gtk-icon-source: -gtk-icontheme("pan-down-symbolic");
+                color: rgb({rgb_css(text_rgb)});
+                background-color: transparent;
+                background-image: none;
+                border: none;
+                box-shadow: none;
+                min-width: 14px;
+                min-height: 14px;
+                padding: 0px;
+                margin: 0px 0px 0px 4px;
             }}
 
             #vboard-main #suggestion-bar {{
@@ -3085,11 +3161,38 @@ class VirtualKeyboard(Gtk.Window):
                 padding: 5px;
             }}
 
+            #vboard-main #combobox {{
+                min-height: 0px;
+                font-size: {self.header_font_size}px;
+            }}
+
             #vboard-main #combobox button.combo {{
                 min-width: 0px;
                 min-height: {header_btn_min_h}px;
                 color: {self.text_color};
-                padding: {combo_padding}px;
+                font-size: {self.header_font_size}px;
+                padding: {combo_pad_v}px {combo_pad_h}px;
+                margin: 0px {header_btn_margin}px;
+            }}
+
+            #vboard-main #combobox cellview {{
+                color: {self.text_color};
+                font-size: {self.header_font_size}px;
+                padding: 0px;
+                margin: 0px;
+            }}
+
+            #vboard-main #combobox button.combo arrow {{
+                -gtk-icon-source: -gtk-icontheme("pan-down-symbolic");
+                color: {self.text_color};
+                background-color: transparent;
+                background-image: none;
+                border: none;
+                box-shadow: none;
+                min-width: 14px;
+                min-height: 14px;
+                padding: 0px;
+                margin: 0px 0px 0px 4px;
             }}
 
             #vboard-main #suggestion-bar {{
