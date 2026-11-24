@@ -3,6 +3,7 @@ __pycache*
 AUR/pkg/
 AUR/src/
 AUR/vboard/
+AUR/vboard-plus/
 AUR/*.tar.zst
 builddir/
 builddir-user/

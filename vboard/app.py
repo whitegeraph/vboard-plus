@@ -56,7 +56,6 @@ class VboardApplication(Gtk.Application):
             if self.window.config_pos_x > 0 and self.window.config_pos_y > 0:
                 self.window.move(self.window.config_pos_x, self.window.config_pos_y)
             self.window.show_all()
-            self.window.change_visibility()
             if self.window.width > 0 and self.window.height > 0:
                 self.window.resize(self.window.width, self.window.height)
             if self.window.start_minimized and self.window.tray_icon is not None:

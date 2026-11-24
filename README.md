@@ -23,7 +23,7 @@ It supports many themes, as you can see below:
 - **Responsive resizable window**: Dynamically scales keys, fonts, headerbar controls, suggestion bar, and gesture-typing hitboxes across window sizes (down to compact mini sizes), persisting validated dimensions
 - **Top Function Row (`F1`–`F12`, `Del`, `Fn`)**: Toggleable from the headerbar (`Fn` button), Settings dialog, or tray menu, with persistent `Fn` lock (`LOCK` / `MEDIA` modes), outlined symbolic icons for `Mute`, `Vol-`, `Vol+`, `Prev`, `Play`, `Next`, `Bri-`, `Bri+`, `MicMute`, and `PrtSc`, text labels for `Home` and `End`, tap-only safety on screenshot/media keys, and a `uinput` stuck-key watchdog
 - **Multiple layouts & Arabic support**: Includes English (US), German, French (AZERTY), Russian, Swedish, and Arabic layouts (with Shift-accessible Arabic diacritics and ligatures)
-- **Automatic system layout sync**: **Follow System Layout** (enabled by default; toggleable in Settings and the tray menu) automatically switches Vboard+ when your GNOME input source (`org.gnome.desktop.input-sources`) or `Gdk.Keymap` changes
+- **Automatic system layout sync**: **Follow System Layout** (enabled by default; toggleable in Settings and the tray menu) automatically switches Vboard+ when your GNOME input source (`org.gnome.desktop.input-sources`), KDE Plasma keyboard layout (`org.kde.KeyboardLayouts`), or `Gdk.Keymap` changes
 - **Persistent settings**: Configuration is saved between sessions in `~/.config/vboard-plus/settings.conf`
 - **Modifier key support**: Provides `Shift`, `Ctrl`, `Alt`, `Tab`, `Super` (Meta/Win), and `Fn` keys
 - **Desktop compatibility**: Native Wayland-friendly behavior on KDE Plasma, with GNOME support via Xwayland fallback
@@ -32,11 +32,26 @@ It supports many themes, as you can see below:
 - **Gesture typing**: Swipe across letter keys and Vboard+ will decode the path into a word
 - **Compact interface**: Headerbar with minimal controls (`☰`, `Fn`, `Esc`, `Options`, opacity, and color dropdown) to save screen space
 - **Tray icon support**: Keeps Vboard+ running in the background and quickly reopens or configures it via StatusNotifier/AppIndicator
-- **uinput input backend**: Injects keys through Linux `uinput`
+- **uinput input backend**: Injects keys through Linux `uinput` (supports both `python-uinput` and `python-evdev`)
 
 Implementation notes for gesture typing are documented in [GESTURE_TYPING.md](./GESTURE_TYPING.md).
 
 ## Installation
+
+### Arch Linux / CachyOS / Manjaro (Pacman package via `makepkg`)
+
+All runtime and build dependencies are available in the official Arch repositories (`python-evdev` is supported natively, so no AUR helper is required):
+
+```bash
+git clone https://github.com/whitegeraph/vboard-plus.git
+cd vboard-plus/AUR
+makepkg -si
+```
+
+Optional for word suggestions:
+```bash
+sudo pacman -S --needed hunspell-en_us
+```
 
 ### Ubuntu/Debian: install from this fork
 
@@ -97,11 +112,11 @@ sudo ln -sf /usr/bin/qdbus-qt6 /usr/local/bin/qdbus6
 
 **For Arch-based distributions:**
 ```bash
-sudo pacman -S python-gobject gtk3 python-uinput python-cairo libayatana-appindicator meson ninja
+sudo pacman -S --needed python-gobject gtk3 python-evdev python-cairo libayatana-appindicator meson ninja
 ```
 Optional for word suggestions:
 ```bash
-sudo pacman -S hunspell-en_us
+sudo pacman -S --needed hunspell-en_us
 ```
 
 ### 2. Clone the repository
